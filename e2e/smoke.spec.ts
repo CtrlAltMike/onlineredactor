@@ -2,5 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('homepage renders', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  const heading = page.getByRole('heading', { level: 1 });
+  await expect(heading).toBeVisible();
+  await expect(heading).toHaveText(/OnlineRedactor/i);
 });
