@@ -13,16 +13,28 @@ export function RedactorClient() {
   useEffect(() => {
     if (!file) return;
     let cancelled = false;
+    let localDoc: PDFDocumentProxy | null = null;
+    setPages([]);
+    setDoc(null);
     (async () => {
       const d = await loadPdfFromFile(file);
-      if (cancelled) return;
+      if (cancelled) {
+        d.destroy();
+        return;
+      }
+      localDoc = d;
       setDoc(d);
-      const ps = [];
-      for (let i = 1; i <= d.numPages; i++) ps.push(await d.getPage(i));
+      const ps: Awaited<ReturnType<PDFDocumentProxy['getPage']>>[] = [];
+      for (let i = 1; i <= d.numPages; i++) {
+        const p = await d.getPage(i);
+        if (cancelled) return;
+        ps.push(p);
+      }
       if (!cancelled) setPages(ps);
     })();
     return () => {
       cancelled = true;
+      if (localDoc) localDoc.destroy();
     };
   }, [file]);
 
@@ -54,7 +66,7 @@ export function RedactorClient() {
       </p>
       <div className="mt-4 space-y-4">
         {pages.map((p, i) => (
-          <PdfPageCanvas key={i} page={p} pageIndex={i} />
+          <PdfPageCanvas key={`${file.name}-${i}`} page={p} pageIndex={i} />
         ))}
       </div>
     </section>
