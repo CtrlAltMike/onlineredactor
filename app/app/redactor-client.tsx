@@ -1,9 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
+import { loadPdfFromFile } from '@/lib/pdf/render';
+import { PdfPageCanvas } from '@/components/pdf-page-canvas';
 
 export function RedactorClient() {
   const [file, setFile] = useState<File | null>(null);
+  const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
+  const [pages, setPages] = useState<Awaited<ReturnType<PDFDocumentProxy['getPage']>>[]>([]);
+
+  useEffect(() => {
+    if (!file) return;
+    let cancelled = false;
+    (async () => {
+      const d = await loadPdfFromFile(file);
+      if (cancelled) return;
+      setDoc(d);
+      const ps = [];
+      for (let i = 1; i <= d.numPages; i++) ps.push(await d.getPage(i));
+      if (!cancelled) setPages(ps);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
 
   if (!file) {
     return (
@@ -28,7 +49,14 @@ export function RedactorClient() {
 
   return (
     <section>
-      <p>Loaded: {file.name}</p>
+      <p className="text-sm text-neutral-600">
+        Loaded: {file.name} ({doc?.numPages ?? '…'} pages)
+      </p>
+      <div className="mt-4 space-y-4">
+        {pages.map((p, i) => (
+          <PdfPageCanvas key={i} page={p} pageIndex={i} />
+        ))}
+      </div>
     </section>
   );
 }
