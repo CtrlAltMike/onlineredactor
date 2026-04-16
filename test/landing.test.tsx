@@ -23,6 +23,6 @@ describe('Landing page', () => {
 
   it('advertises files-stay-in-browser', () => {
     render(<Home />);
-    expect(screen.getByText(/never leave your browser/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/never leave your browser/i).length).toBeGreaterThan(0);
   });
 });

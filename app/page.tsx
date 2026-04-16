@@ -24,7 +24,7 @@ export default function Home() {
           A PDF redactor that proves your redactions worked.
         </h1>
         <p className="mt-6 text-lg text-neutral-600">
-          Redact sensitive text in your browser. Files never leave your device.
+          Redact sensitive text in your browser. Files never leave your browser.
           Every export is verified before you can download it.
         </p>
         <div className="mt-8 flex items-center gap-4">
