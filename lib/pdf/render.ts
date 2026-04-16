@@ -18,19 +18,16 @@ export async function getPdfjs() {
       const mod = needsLegacy
         ? await import('pdfjs-dist/legacy/build/pdf.mjs')
         : await import('pdfjs-dist');
-      if (needsLegacy) {
-        // Resolve the worker relative to pdfjs-dist itself, not this file.
-        const { createRequire } = await import('node:module');
-        const require = createRequire(import.meta.url);
-        mod.GlobalWorkerOptions.workerSrc = require.resolve(
-          'pdfjs-dist/legacy/build/pdf.worker.min.mjs'
-        );
-      } else {
-        mod.GlobalWorkerOptions.workerSrc = new URL(
-          'pdfjs-dist/build/pdf.worker.min.mjs',
-          import.meta.url
-        ).toString();
-      }
+      // Resolve the worker via `import.meta.resolve` — the ESM-standard API
+      // for bare-specifier resolution, available unflagged in Node 20.6+ and
+      // bundler-friendly (Turbopack/Webpack statically analyze the specifier
+      // string). This replaces the earlier `createRequire('node:module')`
+      // path, which Turbopack's static analyzer flagged as unresolvable in
+      // the client graph.
+      const workerSpec = needsLegacy
+        ? 'pdfjs-dist/legacy/build/pdf.worker.min.mjs'
+        : 'pdfjs-dist/build/pdf.worker.min.mjs';
+      mod.GlobalWorkerOptions.workerSrc = import.meta.resolve(workerSpec);
       return mod as typeof import('pdfjs-dist');
     })();
   }

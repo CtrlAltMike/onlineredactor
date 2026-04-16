@@ -1,4 +1,3 @@
-import { PDFDocument, rgb } from 'pdf-lib';
 import type { RedactionResult, RedactionTarget } from './types';
 
 export type PdfSpaceTarget = Omit<RedactionTarget, 'text'> & { text?: string };
@@ -15,32 +14,94 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
     .join('');
 }
 
+// MuPDF boots WASM lazily; memoize the import so we don't pay the startup cost
+// twice in the same process. The module is ESM-only and the single entry
+// (`mupdf`) works in both Node and browser builds — `dist/mupdf.js` fetches
+// `dist/mupdf-wasm.wasm` via `new URL(..., import.meta.url)` internally.
+let mupdfPromise: Promise<typeof import('mupdf')> | null = null;
+async function getMupdf(): Promise<typeof import('mupdf')> {
+  if (!mupdfPromise) {
+    mupdfPromise = import('mupdf');
+  }
+  return mupdfPromise;
+}
+
 export async function applyRedactions(
   pdfBytes: Uint8Array,
   targets: PdfSpaceTarget[]
 ): Promise<RedactionResult> {
-  const doc = await PDFDocument.load(pdfBytes);
-  const pages = doc.getPages();
+  const mupdf = await getMupdf();
 
-  for (const t of targets) {
-    const page = pages[t.page];
-    if (!page) continue;
-    page.drawRectangle({
-      x: t.x,
-      y: t.y,
-      width: t.width,
-      height: t.height,
-      color: rgb(0, 0, 0),
-      opacity: 1,
-    });
+  // openDocument returns a Document; asPDF() narrows it to PDFDocument.
+  const generic = mupdf.Document.openDocument(pdfBytes, 'application/pdf');
+  const doc = generic.asPDF();
+  if (!doc) {
+    throw new Error('applyRedactions: input is not a PDF');
   }
 
-  // flatten: pdf-lib merges drawn content on save
-  const bytes = await doc.save({ useObjectStreams: false });
-  return {
-    bytes,
-    pageCount: pages.length,
-    regionCount: targets.length,
-    sha256: await sha256Hex(bytes),
-  };
+  const pageCount = doc.countPages();
+  let regionCount = 0;
+
+  try {
+    // Group targets by page so we can apply redactions once per page.
+    const byPage = new Map<number, PdfSpaceTarget[]>();
+    for (const t of targets) {
+      if (t.page < 0 || t.page >= pageCount) continue;
+      const list = byPage.get(t.page) ?? [];
+      list.push(t);
+      byPage.set(t.page, list);
+    }
+
+    for (const [pageIndex, pageTargets] of byPage) {
+      // PDFDocument overrides loadPage to return PDFPage concretely, but our
+      // `doc` is typed `Document & PDFDocument` (from `asPDF()`'s intersection
+      // return), and TS picks the Document signature `PDFPage | Page` out of
+      // that union. We narrow explicitly — asPDF() guaranteed this is a PDF.
+      const page = doc.loadPage(pageIndex) as import('mupdf').PDFPage;
+      // MuPDF's JS API expects annotation rects in page display-space
+      // (top-down Y, origin top-left). Confirmed via page.getTransform() ===
+      // [1, 0, 0, -1, 0, pageHeight]: setRect applies the inverse transform
+      // when serializing to the PDF file, so what we pass is NOT PDF-native
+      // coords. Our inputs come in PDF-native (bottom-up) from the canvas→PDF
+      // conversion in the UI, so we flip Y here.
+      const [, , , , , pageHeight] = page.getTransform();
+      for (const t of pageTargets) {
+        const x0 = t.x;
+        const x1 = t.x + t.width;
+        // bottom-up (t.y is lower edge, t.y + t.height is upper edge)
+        // → top-down: flip each around pageHeight
+        const yTop = pageHeight - (t.y + t.height);
+        const yBottom = pageHeight - t.y;
+        const annot = page.createAnnotation('Redact');
+        annot.setRect([x0, yTop, x1, yBottom]);
+        regionCount += 1;
+      }
+      // blackBoxes: true  → paint a black rect after the content-stream rewrite
+      // image_method: PIXELS (2)  → mask image pixels under the quad
+      // line_art_method: REMOVE_IF_COVERED (1)  → remove vector art fully under the box
+      // text_method: REMOVE (0)  → rewrite the content stream to drop glyphs
+      page.applyRedactions(
+        true,
+        mupdf.PDFPage.REDACT_IMAGE_PIXELS,
+        mupdf.PDFPage.REDACT_LINE_ART_REMOVE_IF_COVERED,
+        mupdf.PDFPage.REDACT_TEXT_REMOVE
+      );
+    }
+
+    const outBuffer = doc.saveToBuffer();
+    // Buffer.asUint8Array() is a view onto WASM memory; copy into a fresh
+    // Uint8Array so the bytes survive after the doc/buffer are destroyed.
+    const view = outBuffer.asUint8Array();
+    const bytes = new Uint8Array(view.byteLength);
+    bytes.set(view);
+
+    return {
+      bytes,
+      pageCount,
+      regionCount,
+      sha256: await sha256Hex(bytes),
+    };
+  } finally {
+    doc.destroy();
+  }
 }

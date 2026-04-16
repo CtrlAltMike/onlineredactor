@@ -2,6 +2,15 @@ import { getPdfjs } from './render';
 
 export type VerifyResult = { ok: boolean; leaked: string[] };
 
+// Strip all whitespace so split-text-item false negatives (e.g. "123" + "-45-" +
+// "6789" rendered as separate pdfjs items that reassemble to "123-45-6789" only
+// after we concat) still match the target. Matches behavior of most "find in
+// PDF" tools — whitespace between glyphs is not load-bearing for
+// identity-number style targets.
+function normalize(s: string): string {
+  return s.replace(/\s+/g, '');
+}
+
 export async function verifyRedactions(
   pdfBytes: Uint8Array,
   targetStrings: string[]
@@ -15,13 +24,20 @@ export async function verifyRedactions(
     for (let i = 1; i <= doc.numPages; i++) {
       const page = await doc.getPage(i);
       const content = await page.getTextContent();
-      const pageText = content.items
-        .map((it: unknown) => (it as { str?: string }).str ?? '')
-        .join(' ');
+      // TextContent mixes TextItem (has .str) with TextMarkedContent markers
+      // (no .str). Filter to the ones we can actually read.
+      const pageText = (content.items as Array<Record<string, unknown>>)
+        .filter(
+          (it): it is { str: string } => typeof it.str === 'string'
+        )
+        .map((it) => it.str)
+        .join('');
       collected.push(pageText);
     }
-    const haystack = collected.join('\n');
-    const leaked = targetStrings.filter((s) => haystack.includes(s));
+    const haystack = normalize(collected.join(''));
+    const leaked = targetStrings.filter((s) =>
+      haystack.includes(normalize(s))
+    );
     return { ok: leaked.length === 0, leaked };
   } finally {
     await doc.destroy();

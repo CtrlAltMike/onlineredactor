@@ -78,27 +78,70 @@ export function RedactorClient() {
 
           // Convert each canvas-space target to PDF space. Viewport scale = 1.5
           // (must match PdfPageCanvas' default in lib/pdf/render.ts).
+          // While we're there, extract the text items the target overlaps so
+          // we can feed them to verifyRedactions as the post-redaction
+          // contract ("these strings must NOT survive").
           const scale = 1.5;
+          const seeded: string[] = [];
           const pdfTargets = await Promise.all(
             targets.map(async (t) => {
               const p = await doc.getPage(t.page + 1);
               const viewBox = p.view; // [x0, y0, x1, y1] in points
               const pageHeight = viewBox[3] - viewBox[1];
-              return {
-                page: t.page,
+              const pdfRect = {
                 x: t.x / scale,
                 y: pageHeight - (t.y + t.height) / scale,
                 width: t.width / scale,
                 height: t.height / scale,
               };
+              // Collect text items whose PDF-space AABB intersects pdfRect.
+              // pdfjs text items carry a 2D transform [a,b,c,d,e,f]; for
+              // horizontal text e is x-origin, f is y-baseline, and the item
+              // occupies roughly [e, f, e+width, f+height]. Err on the side
+              // of false positives — we'd rather claim a nearby string is
+              // being redacted than silently miss it.
+              const tc = await p.getTextContent();
+              const rx0 = pdfRect.x;
+              const ry0 = pdfRect.y;
+              const rx1 = pdfRect.x + pdfRect.width;
+              const ry1 = pdfRect.y + pdfRect.height;
+              for (const rawItem of tc.items) {
+                const it = rawItem as {
+                  str?: string;
+                  width?: number;
+                  height?: number;
+                  transform?: number[];
+                };
+                if (typeof it.str !== 'string' || it.str.length === 0) continue;
+                const tr = it.transform;
+                if (!tr || tr.length < 6) continue;
+                const ex = tr[4];
+                const fy = tr[5];
+                const w = typeof it.width === 'number' ? it.width : 0;
+                const h = typeof it.height === 'number' ? it.height : 0;
+                const ix0 = ex;
+                const iy0 = fy;
+                const ix1 = ex + w;
+                const iy1 = fy + h;
+                const overlaps =
+                  ix0 < rx1 && ix1 > rx0 && iy0 < ry1 && iy1 > ry0;
+                if (overlaps) seeded.push(it.str);
+              }
+              return { page: t.page, ...pdfRect };
             })
           );
 
           const result = await applyRedactions(bytes, pdfTargets);
-          // Manual mode: no known strings to check; [] short-circuits to ok.
-          const verify = await verifyRedactions(result.bytes, []);
+          // Seeded targets: MuPDF should have scrubbed these from the content
+          // stream. If verify finds any, hard-fail the export so the user
+          // knows something slipped through.
+          const verify = await verifyRedactions(result.bytes, seeded);
           if (!verify.ok) {
-            alert(`Verification failed. Leaked: ${verify.leaked.join(', ')}`);
+            alert(
+              `Verification failed — redaction did not remove the following text, so the file was NOT downloaded:\n\n${verify.leaked.join(
+                '\n'
+              )}`
+            );
             return;
           }
 
