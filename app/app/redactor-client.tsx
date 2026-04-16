@@ -68,6 +68,53 @@ export function RedactorClient() {
       <p className="text-sm text-neutral-600">
         Loaded: {file.name} ({doc?.numPages ?? '…'} pages)
       </p>
+      <button
+        className="mt-2 rounded-md bg-black text-white px-4 py-2 text-sm"
+        onClick={async () => {
+          if (!file || !doc) return;
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          const { applyRedactions } = await import('@/lib/pdf/apply');
+          const { verifyRedactions } = await import('@/lib/pdf/verify');
+
+          // Convert each canvas-space target to PDF space. Viewport scale = 1.5
+          // (must match PdfPageCanvas' default in lib/pdf/render.ts).
+          const scale = 1.5;
+          const pdfTargets = await Promise.all(
+            targets.map(async (t) => {
+              const p = await doc.getPage(t.page + 1);
+              const viewBox = p.view; // [x0, y0, x1, y1] in points
+              const pageHeight = viewBox[3] - viewBox[1];
+              return {
+                page: t.page,
+                x: t.x / scale,
+                y: pageHeight - (t.y + t.height) / scale,
+                width: t.width / scale,
+                height: t.height / scale,
+              };
+            })
+          );
+
+          const result = await applyRedactions(bytes, pdfTargets);
+          // Manual mode: no known strings to check; [] short-circuits to ok.
+          const verify = await verifyRedactions(result.bytes, []);
+          if (!verify.ok) {
+            alert(`Verification failed. Leaked: ${verify.leaked.join(', ')}`);
+            return;
+          }
+
+          const blob = new Blob([new Uint8Array(result.bytes)], {
+            type: 'application/pdf',
+          });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = file.name.replace(/\.pdf$/i, '') + '.redacted.pdf';
+          a.click();
+          URL.revokeObjectURL(url);
+        }}
+      >
+        Redact &amp; download
+      </button>
       <div className="mt-4 space-y-4">
         {pages.map((p, i) => (
           <PdfPageCanvas

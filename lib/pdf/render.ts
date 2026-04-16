@@ -8,15 +8,31 @@ import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 // worker on first use. The `.mjs` worker lets bundlers resolve it from the
 // pdfjs-dist package.
 let pdfjsPromise: Promise<typeof import('pdfjs-dist')> | null = null;
-async function getPdfjs() {
+export async function getPdfjs() {
   if (!pdfjsPromise) {
-    pdfjsPromise = import('pdfjs-dist').then((mod) => {
-      mod.GlobalWorkerOptions.workerSrc = new URL(
-        'pdfjs-dist/build/pdf.worker.min.mjs',
-        import.meta.url
-      ).toString();
-      return mod;
-    });
+    // The main build evaluates `DOMMatrix` at module load. Real browsers have
+    // it; Node/jsdom (our test env) does not. Fall back to the legacy build
+    // when that global is missing so `verify.ts` can run under Vitest.
+    const needsLegacy = typeof globalThis.DOMMatrix === 'undefined';
+    pdfjsPromise = (async () => {
+      const mod = needsLegacy
+        ? await import('pdfjs-dist/legacy/build/pdf.mjs')
+        : await import('pdfjs-dist');
+      if (needsLegacy) {
+        // Resolve the worker relative to pdfjs-dist itself, not this file.
+        const { createRequire } = await import('node:module');
+        const require = createRequire(import.meta.url);
+        mod.GlobalWorkerOptions.workerSrc = require.resolve(
+          'pdfjs-dist/legacy/build/pdf.worker.min.mjs'
+        );
+      } else {
+        mod.GlobalWorkerOptions.workerSrc = new URL(
+          'pdfjs-dist/build/pdf.worker.min.mjs',
+          import.meta.url
+        ).toString();
+      }
+      return mod as typeof import('pdfjs-dist');
+    })();
   }
   return pdfjsPromise;
 }
