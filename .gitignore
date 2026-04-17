@@ -61,3 +61,6 @@ next-env.d.ts
 test-results/
 playwright-report/
 playwright/.cache/
+
+# pdfjs standard fonts (copied at build time from node_modules)
+/public/pdfjs-standard-fonts/

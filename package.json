@@ -12,7 +12,10 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
-    "fixtures": "node scripts/generate-fixtures.mjs"
+    "fixtures": "node scripts/generate-fixtures.mjs",
+    "copy-fonts": "node scripts/copy-standard-fonts.mjs",
+    "predev": "npm run copy-fonts",
+    "prebuild": "npm run copy-fonts"
   },
   "dependencies": {
     "mupdf": "^1.27.0",

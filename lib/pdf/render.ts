@@ -57,14 +57,14 @@ export async function getPdfjs() {
 // `ok: true`.
 //
 // Environment split:
-//   * Node (Vitest, CI, fixture generation): resolve the on-disk package
-//     directory via `createRequire` + `require.resolve('pdfjs-dist/package.json')`
-//     and return a file:// URL to the adjacent `standard_fonts/` directory.
-//   * Browser: we don't ship the standard fonts (~800 KB) in the public
-//     bundle because the fixtures we care about embed their own fonts. We
-//     still pass a URL (pdfjs complains without one) but point at a
-//     same-origin path; the fetch only happens if pdfjs actually needs a
-//     standard font — our embedded-Helvetica fixture doesn't.
+//   * Node (Vitest, CI, fixture generation, Playwright's Node-side re-parse):
+//     resolve the on-disk package directory via `createRequire` +
+//     `require.resolve('pdfjs-dist/package.json')` and return a file:// URL
+//     to the adjacent `standard_fonts/` directory.
+//   * Browser: Next serves from public/. The `predev` / `prebuild` hook
+//     copies `node_modules/pdfjs-dist/standard_fonts/` into
+//     `public/pdfjs-standard-fonts/` (see `scripts/copy-standard-fonts.mjs`),
+//     so a same-origin absolute path resolves to the real font assets.
 //
 // The `node:module` dynamic import below runs only when `window` is
 // undefined (Node). Turbopack's static analyzer still sees the import
@@ -84,7 +84,8 @@ export async function getStandardFontDataUrl(): Promise<string> {
     const fontsDir = pkgJsonPath.replace(/package\.json$/, 'standard_fonts/');
     return 'file://' + fontsDir;
   }
-  return new URL('/pdfjs-standard-fonts/', window.location.origin).toString();
+  // Browser: Next serves from public/
+  return '/pdfjs-standard-fonts/';
 }
 
 export async function loadPdfFromFile(file: File): Promise<PDFDocumentProxy> {
