@@ -15,4 +15,10 @@ describe('SiteFooter', () => {
     const year = new Date().getFullYear().toString();
     expect(screen.getByText(new RegExp(`© ${year} OnlineRedactor`))).toBeInTheDocument();
   });
+
+  it('has a source link', () => {
+    render(<SiteFooter />);
+    const link = screen.getByRole('link', { name: /source/i });
+    expect(link).toHaveAttribute('href', expect.stringContaining('github.com/CtrlAltMike/onlineredactor'));
+  });
 });
