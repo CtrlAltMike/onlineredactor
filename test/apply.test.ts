@@ -32,6 +32,18 @@ describe('applyRedactions (true content-stream redaction)', () => {
     const verify = await verifyRedactions(result.bytes, ['123-45-6789']);
     expect(verify.ok).toBe(true);
     expect(verify.leaked).toEqual([]);
+
+    // Regression guard for buffer detachment: pdfjs transfers the input
+    // ArrayBuffer to its worker, which previously detached the caller's
+    // view and made the Blob constructor throw. Verify, blob, re-open the
+    // blob, re-verify — the bytes must survive the full round-trip.
+    const blob = new Blob([new Uint8Array(result.bytes)], {
+      type: 'application/pdf',
+    });
+    expect(blob.size).toBeGreaterThan(0);
+    const reread = new Uint8Array(await blob.arrayBuffer());
+    const reVerify = await verifyRedactions(reread, ['123-45-6789']);
+    expect(reVerify.ok).toBe(true);
   });
 
   it('returns a distinct document (bytes change) after redaction', async () => {

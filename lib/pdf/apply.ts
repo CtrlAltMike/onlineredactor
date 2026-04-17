@@ -21,7 +21,13 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 let mupdfPromise: Promise<typeof import('mupdf')> | null = null;
 async function getMupdf(): Promise<typeof import('mupdf')> {
   if (!mupdfPromise) {
-    mupdfPromise = import('mupdf');
+    // Clear the memo on failure so a transient import error (e.g. network
+    // glitch fetching the WASM chunk) doesn't poison every subsequent call
+    // for the life of the session.
+    mupdfPromise = import('mupdf').catch((e) => {
+      mupdfPromise = null;
+      throw e;
+    });
   }
   return mupdfPromise;
 }

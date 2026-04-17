@@ -34,6 +34,17 @@ export async function getPdfjs() {
   return pdfjsPromise;
 }
 
+// pdfjs needs a URL to the bundled CFF/OpenType fallbacks for the 14 standard
+// PDF fonts (Helvetica, Times-Roman, …). Without this, real-world PDFs that
+// reference standard fonts without embedding them emit "Ensure that the
+// standardFontDataUrl API parameter is provided" warnings and may fail text
+// extraction silently — which would make verifyRedactions report a false
+// `ok: true`. `import.meta.resolve` with a trailing slash returns a `file://`
+// (Node) or bundler-emitted URL (browser), both of which pdfjs can `fetch()`.
+export function getStandardFontDataUrl(): string {
+  return import.meta.resolve('pdfjs-dist/standard_fonts/');
+}
+
 export async function loadPdfFromFile(file: File): Promise<PDFDocumentProxy> {
   const pdfjs = await getPdfjs();
   const buffer = await file.arrayBuffer();

@@ -1,4 +1,4 @@
-import { getPdfjs } from './render';
+import { getPdfjs, getStandardFontDataUrl } from './render';
 
 export type VerifyResult = { ok: boolean; leaked: string[] };
 
@@ -18,7 +18,15 @@ export async function verifyRedactions(
   if (targetStrings.length === 0) return { ok: true, leaked: [] };
 
   const pdfjs = await getPdfjs();
-  const doc = await pdfjs.getDocument({ data: pdfBytes }).promise;
+  // Copy the input so pdfjs can safely transfer the ArrayBuffer to its worker
+  // without detaching the caller's view. Without this, callers who reuse
+  // `pdfBytes` after `verifyRedactions` returns (e.g. to build a download
+  // Blob) hit `TypeError: Cannot perform Construct on a detached ArrayBuffer`.
+  const copy = new Uint8Array(pdfBytes);
+  const doc = await pdfjs.getDocument({
+    data: copy,
+    standardFontDataUrl: getStandardFontDataUrl(),
+  }).promise;
   try {
     const collected: string[] = [];
     for (let i = 1; i <= doc.numPages; i++) {

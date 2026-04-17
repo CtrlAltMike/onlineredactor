@@ -24,4 +24,13 @@ describe('verifyRedactions', () => {
     expect(result.ok).toBe(true);
     expect(result.leaked).toEqual([]);
   });
+
+  // Lock in the short-circuit so a future refactor doesn't silently change
+  // it. Callers (redactor-client) rely on this to detect the "seeded is
+  // empty" case and warn the user instead of claiming vacuous success.
+  it('short-circuits to ok:true when targetStrings is empty', async () => {
+    const bytes = await fixture('this remains');
+    const result = await verifyRedactions(bytes, []);
+    expect(result).toEqual({ ok: true, leaked: [] });
+  });
 });
