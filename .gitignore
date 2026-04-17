@@ -1,3 +1,5 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
 # worktrees
 .worktrees/
 
@@ -11,21 +13,51 @@ Thumbs.db
 *.swp
 *~
 
-# Env
+# Env (can opt-in for committing if needed)
 .env
 .env.local
 .env.*.local
+.env*
 
-# Logs
+# dependencies
+node_modules/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+dist/
+
+# misc
+*.pem
+
+# debug
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
 
-# Dependencies / build output (placeholder — will be supplemented by Next.js scaffold)
-node_modules/
-.next/
-out/
-dist/
-build/
-coverage/
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
