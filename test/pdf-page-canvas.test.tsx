@@ -3,10 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { PdfPageCanvas } from '@/components/pdf-page-canvas';
 
 vi.mock('@/lib/pdf/render', () => ({
-  renderPageToCanvas: vi.fn().mockResolvedValue({
-    viewportWidth: 600,
-    viewportHeight: 800,
-  }),
+  // Component now uses startRenderPage (cancellable) so it can abort on
+  // StrictMode re-mounts. Tests don't exercise cancel — just return a done
+  // promise and a no-op cancel.
+  startRenderPage: vi.fn(() => ({
+    done: Promise.resolve({ viewportWidth: 600, viewportHeight: 800 }),
+    cancel: () => {},
+  })),
 }));
 
 describe('PdfPageCanvas', () => {

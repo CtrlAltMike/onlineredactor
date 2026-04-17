@@ -25,7 +25,7 @@ export async function verifyRedactions(
   const copy = new Uint8Array(pdfBytes);
   const doc = await pdfjs.getDocument({
     data: copy,
-    standardFontDataUrl: getStandardFontDataUrl(),
+    standardFontDataUrl: await getStandardFontDataUrl(),
   }).promise;
   try {
     const collected: string[] = [];

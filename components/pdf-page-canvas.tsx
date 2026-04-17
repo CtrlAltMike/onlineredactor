@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { PDFPageProxy } from 'pdfjs-dist';
-import { renderPageToCanvas } from '@/lib/pdf/render';
+import { startRenderPage } from '@/lib/pdf/render';
 import { RedactionOverlay } from '@/components/redaction-overlay';
 
 type Box = { x: number; y: number; width: number; height: number };
@@ -24,18 +24,23 @@ export function PdfPageCanvas({
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
+    if (!ref.current) return;
     let cancelled = false;
-    if (ref.current) {
-      renderPageToCanvas(page, ref.current)
-        .then((d) => {
-          if (!cancelled) setDims({ w: d.viewportWidth, h: d.viewportHeight });
-        })
-        .catch((err) => {
-          if (!cancelled) console.error('render failed', err);
-        });
-    }
+    const handle = startRenderPage(page, ref.current);
+    handle.done
+      .then((d) => {
+        if (!cancelled) setDims({ w: d.viewportWidth, h: d.viewportHeight });
+      })
+      .catch((err) => {
+        // pdfjs throws a RenderingCancelledException when we cancel — that's
+        // expected (dev StrictMode / fast page swap) and not a real failure.
+        if (!cancelled && err?.name !== 'RenderingCancelledException') {
+          console.error('render failed', err);
+        }
+      });
     return () => {
       cancelled = true;
+      handle.cancel();
     };
   }, [page]);
 
