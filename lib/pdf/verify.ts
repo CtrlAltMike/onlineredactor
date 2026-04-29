@@ -1,4 +1,9 @@
 import { getPdfjs, getStandardFontDataUrl } from './render';
+import {
+  extractPageTextItems,
+  overlapsPdfRegion,
+  type PdfTextItem,
+} from './text';
 
 export type VerifyResult = { ok: boolean; leaked: string[] };
 export type VerifyRegion = {
@@ -7,22 +12,6 @@ export type VerifyRegion = {
   y: number;
   width: number;
   height: number;
-};
-
-type TextItem = {
-  str?: string;
-  width?: number;
-  height?: number;
-  transform?: number[];
-};
-
-type TextBox = {
-  page: number;
-  text: string;
-  x0: number;
-  y0: number;
-  x1: number;
-  y1: number;
 };
 
 // Strip all whitespace so split-text-item false negatives (e.g. "123" + "-45-" +
@@ -47,35 +36,7 @@ function verificationFragments(target: string): string[] {
   return [...fragments];
 }
 
-function toTextBox(item: TextItem, page: number): TextBox | null {
-  if (typeof item.str !== 'string' || item.str.length === 0) return null;
-  const tr = item.transform;
-  if (!tr || tr.length < 6) return null;
-
-  const ex = tr[4];
-  const fy = tr[5];
-  const w = typeof item.width === 'number' ? item.width : 0;
-  const h = typeof item.height === 'number' ? item.height : 0;
-
-  return {
-    page,
-    text: item.str,
-    x0: ex,
-    y0: fy - h * 0.25,
-    x1: ex + w,
-    y1: fy + h * 1.1,
-  };
-}
-
-function overlaps(a: TextBox, b: VerifyRegion): boolean {
-  const rx0 = b.x;
-  const ry0 = b.y;
-  const rx1 = b.x + b.width;
-  const ry1 = b.y + b.height;
-  return a.x0 < rx1 && a.x1 > rx0 && a.y0 < ry1 && a.y1 > ry0;
-}
-
-async function extractTextBoxes(pdfBytes: Uint8Array): Promise<TextBox[]> {
+async function extractTextBoxes(pdfBytes: Uint8Array): Promise<PdfTextItem[]> {
   const pdfjs = await getPdfjs();
   // Copy the input so pdfjs can safely transfer the ArrayBuffer to its worker
   // without detaching the caller's view.
@@ -85,14 +46,10 @@ async function extractTextBoxes(pdfBytes: Uint8Array): Promise<TextBox[]> {
     standardFontDataUrl: await getStandardFontDataUrl(),
   }).promise;
   try {
-    const boxes: TextBox[] = [];
+    const boxes: PdfTextItem[] = [];
     for (let i = 1; i <= doc.numPages; i++) {
       const page = await doc.getPage(i);
-      const content = await page.getTextContent();
-      for (const rawItem of content.items as TextItem[]) {
-        const box = toTextBox(rawItem, i - 1);
-        if (box) boxes.push(box);
-      }
+      boxes.push(...(await extractPageTextItems(page, i - 1)));
     }
     return boxes;
   } finally {
@@ -125,7 +82,7 @@ export async function verifyRedactionRegions(
   const boxes = await extractTextBoxes(pdfBytes);
   const leaked = boxes
     .filter((box) =>
-      regions.some((region) => region.page === box.page && overlaps(box, region))
+      regions.some((region) => overlapsPdfRegion(box, region))
     )
     .map((box) => box.text)
     .filter((text, index, all) => all.indexOf(text) === index);
