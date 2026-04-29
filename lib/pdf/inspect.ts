@@ -6,7 +6,8 @@ export type PdfSupportIssueCode =
   | 'document-javascript'
   | 'form-fields'
   | 'image-only'
-  | 'page-annotations';
+  | 'page-annotations'
+  | 'sensitive-metadata';
 
 export type PdfSupportIssue = {
   code: PdfSupportIssueCode;
@@ -18,6 +19,21 @@ type PdfFieldObjects = Record<string, unknown[]> | null;
 type PdfAnnotation = {
   subtype?: string;
 };
+
+type PdfMetadata = {
+  info?: Record<string, unknown>;
+  metadata?: {
+    getRaw?: () => unknown;
+    [Symbol.iterator]?: () => IterableIterator<[string, unknown]>;
+  } | null;
+};
+
+const sensitiveMetadataPatterns = [
+  /\b\d{3}-\d{2}-\d{4}\b/,
+  /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i,
+  /\b(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}\b/,
+  /\b(?:\d[ -]*?){13,19}\b/,
+];
 
 export async function inspectDocumentFeatures(
   doc: PDFDocumentProxy
@@ -62,6 +78,16 @@ export async function inspectDocumentFeatures(
       blocking: true,
       message:
         'This PDF contains embedded attachments. Attachment redaction is not verified yet, so export is disabled.',
+    });
+  }
+
+  const metadata = await optional(() => doc.getMetadata());
+  if (metadataHasSensitiveText(metadata as PdfMetadata | null)) {
+    issues.push({
+      code: 'sensitive-metadata',
+      blocking: true,
+      message:
+        'This PDF contains sensitive-looking document metadata. Metadata redaction is not verified yet, so export is disabled.',
     });
   }
 
@@ -124,6 +150,49 @@ function hasObjectEntries(value: unknown): boolean {
       typeof value === 'object' &&
       Object.keys(value as Record<string, unknown>).length > 0
   );
+}
+
+function metadataHasSensitiveText(metadata: PdfMetadata | null): boolean {
+  if (!metadata) return false;
+  return collectMetadataValues(metadata).some((value) =>
+    sensitiveMetadataPatterns.some((pattern) => pattern.test(value))
+  );
+}
+
+function collectMetadataValues(metadata: PdfMetadata): string[] {
+  const values: string[] = [];
+  collectUnknownMetadata(metadata.info, values);
+
+  const parsedMetadata = metadata.metadata;
+  const iterator = parsedMetadata?.[Symbol.iterator];
+  if (iterator) {
+    for (const [key, value] of iterator.call(parsedMetadata)) {
+      values.push(String(key));
+      collectUnknownMetadata(value, values);
+    }
+  }
+
+  if (parsedMetadata?.getRaw) {
+    collectUnknownMetadata(parsedMetadata.getRaw(), values);
+  }
+
+  return values;
+}
+
+function collectUnknownMetadata(value: unknown, values: string[]) {
+  if (typeof value === 'string') {
+    values.push(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectUnknownMetadata(entry, values));
+    return;
+  }
+  if (value && typeof value === 'object') {
+    Object.values(value as Record<string, unknown>).forEach((entry) =>
+      collectUnknownMetadata(entry, values)
+    );
+  }
 }
 
 function dedupeIssues(issues: PdfSupportIssue[]): PdfSupportIssue[] {

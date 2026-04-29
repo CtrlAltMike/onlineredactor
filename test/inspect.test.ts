@@ -42,6 +42,27 @@ describe('PDF support inspection', () => {
     ]);
   });
 
+  it('blocks sensitive-looking document metadata', async () => {
+    const doc = {
+      getFieldObjects: async () => null,
+      hasJSActions: async () => false,
+      getJSActions: async () => null,
+      getCalculationOrderIds: async () => null,
+      getAttachments: async () => null,
+      getMetadata: async () => ({
+        info: { Title: 'Client SSN 123-45-6789' },
+        metadata: new Map([['subject', 'jane@example.com']]),
+      }),
+    } as unknown as PDFDocumentProxy;
+
+    const issues = await inspectDocumentFeatures(doc);
+
+    expect(issues).toMatchObject([
+      { code: 'sensitive-metadata', blocking: true },
+    ]);
+    expect(formatBlockingIssues(issues)).toContain('document metadata');
+  });
+
   it('allows plain link annotations but blocks content annotations', async () => {
     const linkOnlyPage = {
       getAnnotations: async () => [{ subtype: 'Link' }],

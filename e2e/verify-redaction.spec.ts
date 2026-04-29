@@ -3,6 +3,92 @@ import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
+test.describe.configure({ mode: 'serial' });
+
+const supportedFixtures = [
+  {
+    name: 'plain-ssn.pdf',
+    query: '123-45-6789',
+    absent: '123-45-6789',
+    present: ['JaneDoe', 'PrivacyWay'],
+  },
+  {
+    name: 'multi-page.pdf',
+    query: 'BRAVO-91573',
+    absent: 'BRAVO-91573',
+    present: ['PAGEONE-ALPHA', 'PAGETHREE-OMEGA'],
+  },
+  {
+    name: 'standard-fonts.pdf',
+    query: 'ZQXS-12345',
+    absent: 'ZQXS-12345',
+    present: ['standardfontsremainreadable'],
+  },
+  {
+    name: 'embedded-font.pdf',
+    query: 'ZQXE-24680',
+    absent: 'ZQXE-24680',
+    present: ['Embeddedfontfixture'],
+  },
+  {
+    name: 'rotated-page.pdf',
+    query: 'ZQXR-13579',
+    absent: 'ZQXR-13579',
+    present: ['rotatedpagetextremains'],
+  },
+  {
+    name: 'cropped-page.pdf',
+    query: 'ZQXC-86420',
+    absent: 'ZQXC-86420',
+    present: ['croppedpagetextremains'],
+  },
+  {
+    name: 'mixed-orientation.pdf',
+    query: 'ZQXM-97531',
+    absent: 'ZQXM-97531',
+    present: ['portraitpageremains', 'landscapepageremains'],
+  },
+  {
+    name: 'non-latin.pdf',
+    query: 'Գաղտնի',
+    absent: 'Գաղտնի',
+    present: ['հայերեն'],
+  },
+];
+
+const blockedFixtures = [
+  {
+    name: 'form-field.pdf',
+    alert: /fillable form fields/i,
+    pageVisible: true,
+  },
+  {
+    name: 'annotation-text.pdf',
+    alert: /annotations/i,
+    pageVisible: true,
+  },
+  {
+    name: 'metadata-sensitive.pdf',
+    alert: /document metadata/i,
+    pageVisible: true,
+  },
+  {
+    name: 'encrypted.pdf',
+    alert: /encrypted or password-protected/i,
+    pageVisible: false,
+  },
+  {
+    name: 'scanned-image-only.pdf',
+    alert: /scanned or image-only/i,
+    pageVisible: true,
+  },
+  {
+    name: 'ocr-like-image.pdf',
+    alert: /scanned or image-only/i,
+    pageVisible: true,
+  },
+];
+
 test.beforeAll(() => {
   execSync('npm run fixtures', { stdio: 'inherit' });
 });
@@ -48,6 +134,23 @@ test('search mode marks and redacts matching text', async ({ page }) => {
   await expect(page.getByText(/1 page, 1 region, SHA-256/i)).toBeVisible();
 });
 
+for (const fixture of supportedFixtures) {
+  test(`fixture corpus exports verified redaction for ${fixture.name}`, async ({ page }) => {
+    await loadFixture(page, fixture.name);
+
+    await page.getByLabel(/find text/i).fill(fixture.query);
+    await page.getByRole('button', { name: /mark matches/i }).click();
+    await expect(page.getByText(/added .* search target/i)).toBeVisible();
+
+    const text = await redactAndExtractText(page);
+    const haystack = text.replace(/\s+/g, '');
+    expect(haystack).not.toContain(fixture.absent);
+    for (const present of fixture.present) {
+      expect(haystack).toContain(present);
+    }
+  });
+}
+
 test('saved local rules can mark matching text', async ({ page }) => {
   await loadFixture(page, 'plain-ssn.pdf');
 
@@ -82,6 +185,17 @@ test('image-only PDFs are detected and blocked', async ({ page }) => {
   await expect(page.getByRole('button', { name: /auto-detect/i })).toBeDisabled();
 });
 
+for (const fixture of blockedFixtures) {
+  test(`fixture corpus blocks unsupported file ${fixture.name}`, async ({ page }) => {
+    await uploadFixture(page, fixture.name);
+    if (fixture.pageVisible) {
+      await expect(page.getByLabel('Page 1')).toBeVisible();
+    }
+    await expect(page.getByText(fixture.alert)).toBeVisible();
+    await expect(page.getByRole('button', { name: /redact/i })).toBeDisabled();
+  });
+}
+
 test('fillable form PDFs are detected and blocked', async ({ page }) => {
   await loadFixture(page, 'form-field.pdf');
 
@@ -113,19 +227,35 @@ test('local free-tier cap blocks export after three redactions', async ({ page }
 });
 
 async function loadFixture(page: Page, fixtureName: string) {
-  await page.goto('/app');
-  const fixturePath = resolve('test/fixtures/out', fixtureName);
-  await page.getByLabel('PDF file').setInputFiles(fixturePath);
+  await uploadFixture(page, fixtureName);
   await expect(page.getByLabel('Page 1')).toBeVisible();
 }
 
-async function redactAndExtractText(page: Page): Promise<string> {
-  page.on('dialog', (dialog) => dialog.accept());
+async function uploadFixture(page: Page, fixtureName: string) {
+  await page.goto('/app');
+  const fixturePath = resolve('test/fixtures/out', fixtureName);
+  await page.getByLabel('PDF file').setInputFiles(fixturePath);
+}
 
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: /redact/i }).click(),
+async function redactAndExtractText(page: Page): Promise<string> {
+  const resultPromise = Promise.race([
+    page.waitForEvent('download').then((download) => ({ download })),
+    page
+      .waitForEvent('dialog')
+      .then(async (dialog) => {
+        const dialogMessage = dialog.message();
+        await dialog.accept();
+        return { dialogMessage };
+      }),
   ]);
+  await page.getByRole('button', { name: /redact/i }).click();
+  const result = await resultPromise;
+
+  if ('dialogMessage' in result) {
+    throw new Error(result.dialogMessage);
+  }
+
+  const { download } = result;
 
   const savedPath = await download.path();
   if (!savedPath) throw new Error('download did not produce a path');

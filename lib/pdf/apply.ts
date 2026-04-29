@@ -64,20 +64,13 @@ export async function applyRedactions(
       // return), and TS picks the Document signature `PDFPage | Page` out of
       // that union. We narrow explicitly — asPDF() guaranteed this is a PDF.
       const page = doc.loadPage(pageIndex) as import('mupdf').PDFPage;
-      // MuPDF's JS API expects annotation rects in page display-space
-      // (top-down Y, origin top-left). Confirmed via page.getTransform() ===
-      // [1, 0, 0, -1, 0, pageHeight]: setRect applies the inverse transform
-      // when serializing to the PDF file, so what we pass is NOT PDF-native
-      // coords. Our inputs come in PDF-native (bottom-up) from the canvas→PDF
-      // conversion in the UI, so we flip Y here.
-      const [, , , , , pageHeight] = page.getTransform();
+      // MuPDF's JS API expects annotation rects in page display-space.
+      // page.getTransform() maps PDF-space points into that display-space for
+      // normal, cropped, and rotated pages; build the bbox from all four
+      // transformed corners so rotated pages do not silently miss the target.
+      const transform = page.getTransform();
       for (const t of pageTargets) {
-        const x0 = t.x;
-        const x1 = t.x + t.width;
-        // bottom-up (t.y is lower edge, t.y + t.height is upper edge)
-        // → top-down: flip each around pageHeight
-        const yTop = pageHeight - (t.y + t.height);
-        const yBottom = pageHeight - t.y;
+        const [x0, yTop, x1, yBottom] = transformPdfRectToPageRect(t, transform);
         const annot = page.createAnnotation('Redact');
         annot.setRect([x0, yTop, x1, yBottom]);
         regionCount += 1;
@@ -110,4 +103,34 @@ export async function applyRedactions(
   } finally {
     doc.destroy();
   }
+}
+
+function transformPdfRectToPageRect(
+  target: PdfSpaceTarget,
+  matrix: number[]
+): [number, number, number, number] {
+  const x0 = target.x;
+  const y0 = target.y;
+  const x1 = target.x + target.width;
+  const y1 = target.y + target.height;
+  const points = [
+    transformPoint(x0, y0, matrix),
+    transformPoint(x1, y0, matrix),
+    transformPoint(x0, y1, matrix),
+    transformPoint(x1, y1, matrix),
+  ];
+  return [
+    Math.min(...points.map((point) => point[0])),
+    Math.min(...points.map((point) => point[1])),
+    Math.max(...points.map((point) => point[0])),
+    Math.max(...points.map((point) => point[1])),
+  ];
+}
+
+function transformPoint(
+  x: number,
+  y: number,
+  [a, b, c, d, e, f]: number[]
+): [number, number] {
+  return [a * x + c * y + e, b * x + d * y + f];
 }
