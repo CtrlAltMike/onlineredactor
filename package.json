@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "build:cloudflare": "npm run build",
+    "preview:cloudflare": "npx wrangler pages dev out",
+    "start": "npx serve@latest out",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",

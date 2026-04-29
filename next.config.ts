@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
+  output: 'export',
   // Turbopack is the default in Next 16 for both dev and build.
   // - `canvas`: pdfjs-dist optionally imports Node's `canvas` — we're purely
   //   client-side so skip it.
@@ -9,6 +14,7 @@ const nextConfig: NextConfig = {
   //   browser but which Turbopack still resolves statically. Alias it to a
   //   tiny empty-module stub so the client bundle resolves clean.
   turbopack: {
+    root: projectRoot,
     resolveAlias: {
       canvas: { browser: './lib/stubs/empty.js' },
       module: { browser: './lib/stubs/empty.js' },

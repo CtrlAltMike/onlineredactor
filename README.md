@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OnlineRedactor
 
-## Getting Started
+Client-side PDF redaction built with Next.js. Uploaded PDFs are rendered,
+redacted, and verified in the browser; document bytes are not sent to the app's
+servers.
 
-First, run the development server:
+## Local development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Checks
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test
+npm run build
+```
 
-## Learn More
+The build copies PDF.js standard fonts into `public/pdfjs-standard-fonts` before
+running Next.js.
 
-To learn more about Next.js, take a look at the following resources:
+## Cloudflare deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+This app is configured as a static Next.js export for Cloudflare Pages.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Build command: `npm run build:cloudflare`
+- Output directory: `out`
+- Stripe build variable: `NEXT_PUBLIC_STRIPE_PROSUMER_PAYMENT_LINK`
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Create the Prosumer subscription Payment Link in Stripe, then set the variable
+in Cloudflare Pages and redeploy. See
+[`docs/deployment-cloudflare-stripe.md`](docs/deployment-cloudflare-stripe.md)
+for the full deployment notes and the future Workers path for webhooks and
+subscription enforcement.
