@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -30,4 +30,36 @@ await writePdf('multi-page.pdf', async (doc) => {
     page.drawText(`Page ${i + 1}`, { x: 72, y: 720, size: 14, font });
     page.drawText(`Token: SECRET-${i}`, { x: 72, y: 700, size: 12, font });
   }
+});
+
+await writePdf('patterns.pdf', async (doc) => {
+  const page = doc.addPage([612, 792]);
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  page.drawText('Client: Jane Doe', { x: 72, y: 720, size: 12, font });
+  page.drawText('Email: jane@example.com', { x: 72, y: 700, size: 12, font });
+  page.drawText('Phone: 555-123-4567', { x: 72, y: 680, size: 12, font });
+  page.drawText('Card: 4242 4242 4242 4242', { x: 72, y: 660, size: 12, font });
+  page.drawText('Public note: keep this line', { x: 72, y: 640, size: 12, font });
+});
+
+await writePdf('scanned-image-only.pdf', async (doc) => {
+  const page = doc.addPage([612, 792]);
+  page.drawRectangle({
+    x: 72,
+    y: 650,
+    width: 300,
+    height: 80,
+    borderColor: rgb(0, 0, 0),
+    borderWidth: 1,
+    color: rgb(0.95, 0.95, 0.95),
+  });
+  // This fixture intentionally contains no PDF text objects. It represents the
+  // class of scanned/image-only PDFs that V1 must detect and block until OCR.
+  page.drawRectangle({
+    x: 110,
+    y: 690,
+    width: 220,
+    height: 8,
+    color: rgb(0.2, 0.2, 0.2),
+  });
 });
