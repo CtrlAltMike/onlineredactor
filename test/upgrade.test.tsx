@@ -7,6 +7,7 @@ describe('Upgrade page', () => {
     render(<UpgradePage />);
     expect(screen.getByRole('heading', { name: /upgrade/i })).toBeInTheDocument();
     expect(screen.getByText(/paid checkout is paused/i)).toBeInTheDocument();
+    expect(screen.getByText(/local 3-redaction daily cap/i)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /stripe/i })).not.toBeInTheDocument();
   });
 });

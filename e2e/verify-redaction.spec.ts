@@ -76,6 +76,29 @@ test('fillable form PDFs are detected and blocked', async ({ page }) => {
   await expect(page.getByRole('button', { name: /redact/i })).toBeDisabled();
 });
 
+test('local free-tier cap blocks export after three redactions', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const now = new Date();
+    const date = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-');
+    window.localStorage.setItem(
+      'onlineredactor.free-usage.v1',
+      JSON.stringify({ date, count: 3 })
+    );
+  });
+  await loadFixture(page, 'plain-ssn.pdf');
+
+  await page.getByLabel(/find text/i).fill('123-45-6789');
+  await page.getByRole('button', { name: /mark matches/i }).click();
+  await expect(page.getByText(/free redactions today: 3\/3/i)).toBeVisible();
+  await expect(page.getByText(/exports are paused/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /redact/i })).toBeDisabled();
+});
+
 async function loadFixture(page: Page, fixtureName: string) {
   await page.goto('/app');
   const fixturePath = resolve('test/fixtures/out', fixtureName);

@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RedactorClient } from '@/app/app/redactor-client';
+import { FREE_USAGE_STORAGE_KEY } from '@/lib/usage/free-tier';
 
 const mocks = vi.hoisted(() => ({
   loadPdfFromFile: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock('@/lib/pdf/text', () => ({
 describe('RedactorClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     const fakePage = { view: [0, 0, 612, 792] };
     mocks.loadPdfFromFile.mockResolvedValue({
       numPages: 1,
@@ -77,4 +79,29 @@ describe('RedactorClient', () => {
     expect(screen.getByText(/added 1 search target/i)).toBeInTheDocument();
     expect(screen.getByText(/1 target selected/i)).toBeInTheDocument();
   });
+
+  it('disables export when the local free cap is reached', async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem(
+      FREE_USAGE_STORAGE_KEY,
+      JSON.stringify({ date: localDateKey(new Date()), count: 3 })
+    );
+    render(<RedactorClient />);
+
+    await user.upload(
+      screen.getByLabelText(/pdf file/i),
+      new File(['pdf'], 'sample.pdf', { type: 'application/pdf' })
+    );
+
+    await screen.findByText(/free redactions today: 3\/3/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/exports are paused/i);
+    expect(screen.getByRole('button', { name: /redact/i })).toBeDisabled();
+  });
 });
+
+function localDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}

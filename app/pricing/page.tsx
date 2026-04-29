@@ -15,7 +15,7 @@ const tiers: Tier[] = [
     blurb: 'For occasional redactions. No signup required.',
     features: [
       'Manual redaction, text search, auto-detect',
-      '3 redactions per 24 hours',
+      '3 verified redactions per local day',
       'Watermarked redaction certificate',
     ],
     cta: { label: 'Open the tool', href: '/app' },

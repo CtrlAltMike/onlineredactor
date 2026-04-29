@@ -1,8 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPdfFromFile } from '@/lib/pdf/render';
+import {
+  readFreeUsage,
+  recordFreeRedaction,
+  type FreeUsageSnapshot,
+} from '@/lib/usage/free-tier';
 import {
   formatBlockingIssues,
   inspectDocumentFeatures,
@@ -20,6 +26,13 @@ import {
 import { PdfPageCanvas } from '@/components/pdf-page-canvas';
 
 const renderScale = 1.5;
+const initialUsage: FreeUsageSnapshot = {
+  date: '',
+  count: 0,
+  limit: 3,
+  remaining: 3,
+  isCapped: false,
+};
 
 type CanvasTarget = {
   page: number;
@@ -41,6 +54,11 @@ export function RedactorClient() {
   const [status, setStatus] = useState<string | null>(null);
   const [unsupportedReason, setUnsupportedReason] = useState<string | null>(null);
   const [certificateText, setCertificateText] = useState<string | null>(null);
+  const [usage, setUsage] = useState<FreeUsageSnapshot>(initialUsage);
+
+  useEffect(() => {
+    setUsage(readFreeUsage(window.localStorage));
+  }, []);
 
   useEffect(() => {
     if (!file) return;
@@ -225,12 +243,44 @@ export function RedactorClient() {
 
       {status && <p className="mt-3 text-sm text-neutral-600">{status}</p>}
 
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
+        <p>
+          Free redactions today: {usage.count}/{usage.limit}
+        </p>
+        {usage.isCapped ? (
+          <Link href="/upgrade" className="underline underline-offset-4">
+            Upgrade options
+          </Link>
+        ) : (
+          <p>{usage.remaining} remaining before the local free-tier pause.</p>
+        )}
+      </div>
+
+      {usage.isCapped && (
+        <p
+          role="alert"
+          className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+        >
+          You have used today&apos;s 3 free verified redactions in this browser.
+          Paid checkout is paused, so exports are paused until the local counter
+          resets tomorrow.
+        </p>
+      )}
+
       <button
         className="mt-4 rounded-md bg-black text-white px-4 py-2 text-sm disabled:bg-neutral-300"
-        disabled={Boolean(unsupportedReason) || targets.length === 0}
+        disabled={Boolean(unsupportedReason) || targets.length === 0 || usage.isCapped}
         onClick={async () => {
           try {
             if (!file || !doc) return;
+            const currentUsage = readFreeUsage(window.localStorage);
+            if (currentUsage.isCapped) {
+              setUsage(currentUsage);
+              alert(
+                "You've used today's 3 free verified redactions in this browser. Exports are paused until the local counter resets tomorrow."
+              );
+              return;
+            }
             const bytes = new Uint8Array(await file.arrayBuffer());
             const { applyRedactions } = await import('@/lib/pdf/apply');
             const {
@@ -295,6 +345,7 @@ export function RedactorClient() {
             setStatus(
               'Verified redaction complete. Download started. Verification certificate is ready.'
             );
+            setUsage(recordFreeRedaction(window.localStorage));
           } catch (e) {
             alert(
               `Redaction failed: ${
