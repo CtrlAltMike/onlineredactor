@@ -2,16 +2,18 @@
 
 OnlineRedactor currently runs its PDF redaction flow entirely in the browser.
 That makes the first production deployment a static Next.js export on
-Cloudflare Pages, with Stripe-hosted Payment Links for checkout.
+Cloudflare Pages.
+
+Paid checkout is intentionally paused while redaction safety and AGPL compliance
+work is completed. Do not re-enable Stripe checkout until the redaction review
+items are resolved.
 
 ## Current deploy target
 
 - Host: Cloudflare Pages
 - Build command: `npm run build:cloudflare`
 - Build output directory: `out`
-- Stripe integration: Payment Link URL compiled into the pricing page
-- Required Cloudflare build variable:
-  - `NEXT_PUBLIC_STRIPE_PROSUMER_PAYMENT_LINK`
+- Stripe integration: paused
 
 Cloudflare's static Next.js Pages guide uses `npx next build` and `out` for
 static exports. Cloudflare's current recommendation for full-stack Next.js is
@@ -28,6 +30,11 @@ References:
   https://docs.stripe.com/payment-links
 
 ## Stripe setup
+
+Stripe setup is paused. The existing Prosumer Payment Link should remain
+inactive or unlinked from the app until paid access is ready.
+
+When paid plans are re-enabled later:
 
 1. In Stripe, create the Prosumer product and a recurring monthly price.
 2. Create a Payment Link for that subscription.
@@ -49,8 +56,7 @@ hosts the payment page and handles payment method collection.
    - Framework preset: Next.js (Static HTML Export)
    - Build command: `npm run build:cloudflare`
    - Build output directory: `out`
-4. Add the Stripe build variable above.
-5. Deploy and attach the custom domain.
+4. Deploy and attach the custom domain.
 
 ## Later paid access enforcement
 

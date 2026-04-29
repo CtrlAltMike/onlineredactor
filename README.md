@@ -29,10 +29,9 @@ This app is configured as a static Next.js export for Cloudflare Pages.
 
 - Build command: `npm run build:cloudflare`
 - Output directory: `out`
-- Stripe build variable: `NEXT_PUBLIC_STRIPE_PROSUMER_PAYMENT_LINK`
 
-Create the Prosumer subscription Payment Link in Stripe, then set the variable
-in Cloudflare Pages and redeploy. See
+Paid checkout is intentionally paused while redaction safety and AGPL compliance
+work is completed. See
 [`docs/deployment-cloudflare-stripe.md`](docs/deployment-cloudflare-stripe.md)
-for the full deployment notes and the future Workers path for webhooks and
-subscription enforcement.
+for the deployment notes and the future Workers path for webhooks and
+subscription enforcement if paid plans are re-enabled later.

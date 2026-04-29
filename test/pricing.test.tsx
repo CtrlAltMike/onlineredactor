@@ -19,4 +19,9 @@ describe('Pricing page', () => {
     render(<PricingPage />);
     expect(screen.getByRole('link', { name: /contact us/i })).toBeInTheDocument();
   });
+
+  it('shows Prosumer checkout as paused', () => {
+    render(<PricingPage />);
+    expect(screen.getByRole('link', { name: /paused/i })).toHaveAttribute('href', '/upgrade');
+  });
 });

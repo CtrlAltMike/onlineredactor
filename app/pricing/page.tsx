@@ -1,8 +1,5 @@
 import Link from 'next/link';
 
-const prosumerCheckoutHref =
-  process.env.NEXT_PUBLIC_STRIPE_PROSUMER_PAYMENT_LINK || '/upgrade';
-
 type Tier = {
   name: string;
   price: string;
@@ -33,7 +30,7 @@ const tiers: Tier[] = [
       'Clean redaction certificate',
       'Saved redaction rules + local history',
     ],
-    cta: { label: 'Upgrade', href: prosumerCheckoutHref },
+    cta: { label: 'Paused', href: '/upgrade' },
   },
   {
     name: 'Enterprise',

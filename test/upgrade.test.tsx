@@ -3,9 +3,10 @@ import { describe, expect, it } from 'vitest';
 import UpgradePage from '@/app/upgrade/page';
 
 describe('Upgrade page', () => {
-  it('explains Stripe-hosted checkout', () => {
+  it('explains paid checkout is paused', () => {
     render(<UpgradePage />);
     expect(screen.getByRole('heading', { name: /upgrade/i })).toBeInTheDocument();
-    expect(screen.getByText(/handled by Stripe/i)).toBeInTheDocument();
+    expect(screen.getByText(/paid checkout is paused/i)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /stripe/i })).not.toBeInTheDocument();
   });
 });
