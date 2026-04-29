@@ -4,6 +4,12 @@ import { useEffect, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPdfFromFile } from '@/lib/pdf/render';
 import {
+  formatBlockingIssues,
+  inspectDocumentFeatures,
+  inspectPageFeatures,
+  type PdfSupportIssue,
+} from '@/lib/pdf/inspect';
+import {
   coveredTextForRegions,
   detectSensitiveTextRegions,
   extractPageTextItems,
@@ -34,6 +40,7 @@ export function RedactorClient() {
   const [searchQuery, setSearchQuery] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [unsupportedReason, setUnsupportedReason] = useState<string | null>(null);
+  const [certificateText, setCertificateText] = useState<string | null>(null);
 
   useEffect(() => {
     if (!file) return;
@@ -45,30 +52,43 @@ export function RedactorClient() {
     setTextItems([]);
     setStatus(null);
     setUnsupportedReason(null);
+    setCertificateText(null);
     (async () => {
-      const d = await loadPdfFromFile(file);
-      if (cancelled) {
-        d.destroy();
-        return;
-      }
-      localDoc = d;
-      setDoc(d);
-      const ps: Awaited<ReturnType<PDFDocumentProxy['getPage']>>[] = [];
-      const text: PdfTextItem[] = [];
-      for (let i = 1; i <= d.numPages; i++) {
-        const p = await d.getPage(i);
-        if (cancelled) return;
-        ps.push(p);
-        text.push(...(await extractPageTextItems(p, i - 1)));
-      }
-      if (!cancelled) {
-        setPages(ps);
-        setTextItems(text);
-        if (text.length === 0) {
-          setUnsupportedReason(
-            'This PDF appears to be scanned or image-only. OCR redaction is not available yet, so export is disabled.'
-          );
+      try {
+        const d = await loadPdfFromFile(file);
+        if (cancelled) {
+          d.destroy();
+          return;
         }
+        localDoc = d;
+        setDoc(d);
+        const ps: Awaited<ReturnType<PDFDocumentProxy['getPage']>>[] = [];
+        const text: PdfTextItem[] = [];
+        const issues: PdfSupportIssue[] = [
+          ...(await inspectDocumentFeatures(d)),
+        ];
+        for (let i = 1; i <= d.numPages; i++) {
+          const p = await d.getPage(i);
+          if (cancelled) return;
+          ps.push(p);
+          issues.push(...(await inspectPageFeatures(p)));
+          text.push(...(await extractPageTextItems(p, i - 1)));
+        }
+        if (text.length === 0) {
+          issues.push({
+            code: 'image-only',
+            blocking: true,
+            message:
+              'This PDF appears to be scanned or image-only. OCR redaction is not available yet, so export is disabled.',
+          });
+        }
+        if (!cancelled) {
+          setPages(ps);
+          setTextItems(text);
+          setUnsupportedReason(formatBlockingIssues(issues));
+        }
+      } catch (error) {
+        if (!cancelled) setUnsupportedReason(loadFailureMessage(error));
       }
     })();
     return () => {
@@ -213,6 +233,10 @@ export function RedactorClient() {
             if (!file || !doc) return;
             const bytes = new Uint8Array(await file.arrayBuffer());
             const { applyRedactions } = await import('@/lib/pdf/apply');
+            const {
+              buildVerificationCertificate,
+              formatVerificationCertificate,
+            } = await import('@/lib/pdf/certificate');
             const { verifyRedactions, verifyRedactionRegions } = await import(
               '@/lib/pdf/verify'
             );
@@ -260,7 +284,17 @@ export function RedactorClient() {
             a.download = file.name.replace(/\.pdf$/i, '') + '.redacted.pdf';
             a.click();
             URL.revokeObjectURL(url);
-            setStatus('Verified redaction complete. Download started.');
+            const certificate = buildVerificationCertificate({
+              outputSha256: result.sha256,
+              pageCount: result.pageCount,
+              regionCount: result.regionCount,
+              verifiedStringCount: seeded.length,
+              verifiedRegionCount: pdfTargets.length,
+            });
+            setCertificateText(formatVerificationCertificate(certificate));
+            setStatus(
+              'Verified redaction complete. Download started. Verification certificate is ready.'
+            );
           } catch (e) {
             alert(
               `Redaction failed: ${
@@ -273,6 +307,25 @@ export function RedactorClient() {
       >
         Redact &amp; download
       </button>
+      {certificateText && (
+        <section
+          aria-label="Verification certificate"
+          className="mt-4 rounded-md border border-neutral-200 p-4"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold">Verification certificate</h2>
+            <button
+              className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+              onClick={() => downloadTextFile(certificateText, 'redaction-certificate.txt')}
+            >
+              Download certificate
+            </button>
+          </div>
+          <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-neutral-50 p-3 text-xs text-neutral-700">
+            {certificateText}
+          </pre>
+        </section>
+      )}
       <div className="mt-4 space-y-4">
         {pages.map((p, i) => (
           <PdfPageCanvas
@@ -286,6 +339,24 @@ export function RedactorClient() {
       </div>
     </section>
   );
+}
+
+function loadFailureMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/password/i.test(message)) {
+    return 'This PDF is encrypted or password-protected. Password-protected PDFs are not supported for verified export yet.';
+  }
+  return `This PDF could not be loaded for verified redaction. ${message}`;
+}
+
+function downloadTextFile(text: string, filename: string) {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function dedupeTargets(targets: CanvasTarget[]): CanvasTarget[] {

@@ -69,6 +69,13 @@ test('image-only PDFs are detected and blocked', async ({ page }) => {
   await expect(page.getByRole('button', { name: /auto-detect/i })).toBeDisabled();
 });
 
+test('fillable form PDFs are detected and blocked', async ({ page }) => {
+  await loadFixture(page, 'form-field.pdf');
+
+  await expect(page.getByText(/fillable form fields/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /redact/i })).toBeDisabled();
+});
+
 async function loadFixture(page: Page, fixtureName: string) {
   await page.goto('/app');
   const fixturePath = resolve('test/fixtures/out', fixtureName);

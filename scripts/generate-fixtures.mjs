@@ -63,3 +63,14 @@ await writePdf('scanned-image-only.pdf', async (doc) => {
     color: rgb(0.2, 0.2, 0.2),
   });
 });
+
+await writePdf('form-field.pdf', async (doc) => {
+  const page = doc.addPage([612, 792]);
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  page.drawText('Form field fixture', { x: 72, y: 730, size: 12, font });
+  page.drawText('Visible label: SSN', { x: 72, y: 700, size: 12, font });
+  const form = doc.getForm();
+  const field = form.createTextField('ssn');
+  field.setText('123-45-6789');
+  field.addToPage(page, { x: 170, y: 692, width: 140, height: 22 });
+});
