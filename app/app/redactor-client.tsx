@@ -3,6 +3,18 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import {
+  addRedactionHistoryEntry,
+  clearRedactionHistory,
+  readRedactionHistory,
+  type RedactionHistoryEntry,
+} from '@/lib/local/redaction-history';
+import {
+  deleteRule,
+  readSavedRules,
+  saveRule,
+  type SavedRule,
+} from '@/lib/local/saved-rules';
 import { loadPdfFromFile } from '@/lib/pdf/render';
 import { pdfSizeLimitMessage } from '@/lib/pdf/limits';
 import {
@@ -57,9 +69,13 @@ export function RedactorClient() {
   const [unsupportedReason, setUnsupportedReason] = useState<string | null>(null);
   const [certificateText, setCertificateText] = useState<string | null>(null);
   const [usage, setUsage] = useState<FreeUsageSnapshot>(initialUsage);
+  const [savedRules, setSavedRules] = useState<SavedRule[]>([]);
+  const [history, setHistory] = useState<RedactionHistoryEntry[]>([]);
 
   useEffect(() => {
     setUsage(readFreeUsage(window.localStorage));
+    setSavedRules(readSavedRules(window.localStorage));
+    setHistory(readRedactionHistory(window.localStorage));
   }, []);
 
   useEffect(() => {
@@ -155,6 +171,31 @@ export function RedactorClient() {
     setStatus(`Added ${nextTargets.length} ${label} target${nextTargets.length === 1 ? '' : 's'}.`);
   }
 
+  function markSearchQuery(query: string, label: string) {
+    const regions = findTextRegions(textItems, query)
+      .map((region) => pdfRegionToCanvasTarget(region))
+      .filter((target): target is CanvasTarget => target !== null);
+    addTargets(regions, label);
+  }
+
+  function applySavedRules(rules: SavedRule[]) {
+    const regions = rules.flatMap((rule) => findTextRegions(textItems, rule.query))
+      .map((region) => pdfRegionToCanvasTarget(region))
+      .filter((target): target is CanvasTarget => target !== null);
+    addTargets(regions, 'saved-rule');
+  }
+
+  function saveSearchRule() {
+    const nextRules = saveRule(window.localStorage, { query: searchQuery });
+    setSavedRules(nextRules);
+    if (searchQuery.trim()) setStatus(`Saved "${searchQuery.trim()}" as a local rule.`);
+  }
+
+  function removeSavedRule(rule: SavedRule) {
+    setSavedRules(deleteRule(window.localStorage, rule.id));
+    setStatus(`Deleted saved rule "${rule.name}".`);
+  }
+
   function chooseFile(nextFile: File | undefined) {
     if (!nextFile) return;
     const limitMessage = pdfSizeLimitMessage(nextFile.size);
@@ -229,14 +270,16 @@ export function RedactorClient() {
         <button
           className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:bg-neutral-300"
           disabled={Boolean(unsupportedReason) || !searchQuery.trim()}
-          onClick={() => {
-            const regions = findTextRegions(textItems, searchQuery)
-              .map((region) => pdfRegionToCanvasTarget(region))
-              .filter((target): target is CanvasTarget => target !== null);
-            addTargets(regions, 'search');
-          }}
+          onClick={() => markSearchQuery(searchQuery, 'search')}
         >
           Mark matches
+        </button>
+        <button
+          className="rounded-md border border-neutral-300 px-4 py-2 text-sm disabled:text-neutral-400"
+          disabled={!searchQuery.trim()}
+          onClick={saveSearchRule}
+        >
+          Save rule
         </button>
         <button
           className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:bg-neutral-300"
@@ -261,6 +304,54 @@ export function RedactorClient() {
           Clear
         </button>
       </div>
+
+      <section className="mt-4 rounded-md border border-neutral-200 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold">Saved local rules</h2>
+          <button
+            className="rounded-md border border-neutral-300 px-3 py-2 text-sm disabled:text-neutral-400"
+            disabled={Boolean(unsupportedReason) || savedRules.length === 0}
+            onClick={() => applySavedRules(savedRules)}
+          >
+            Apply all
+          </button>
+        </div>
+        {savedRules.length === 0 ? (
+          <p className="mt-3 text-sm text-neutral-600">
+            Save repeat searches like an SSN, case number, or account number.
+            Rules stay in this browser only.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {savedRules.map((rule) => (
+              <li
+                key={rule.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-neutral-50 px-3 py-2 text-sm"
+              >
+                <span>
+                  <span className="font-medium">{rule.name}</span>
+                  <span className="ml-2 text-neutral-500">{rule.query}</span>
+                </span>
+                <span className="flex gap-2">
+                  <button
+                    className="rounded-md border border-neutral-300 px-3 py-1.5 disabled:text-neutral-400"
+                    disabled={Boolean(unsupportedReason)}
+                    onClick={() => markSearchQuery(rule.query, 'saved-rule')}
+                  >
+                    Apply
+                  </button>
+                  <button
+                    className="rounded-md border border-neutral-300 px-3 py-1.5"
+                    onClick={() => removeSavedRule(rule)}
+                  >
+                    Delete
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {status && <p className="mt-3 text-sm text-neutral-600">{status}</p>}
 
@@ -367,6 +458,14 @@ export function RedactorClient() {
               'Verified redaction complete. Download started. Verification certificate is ready.'
             );
             setUsage(recordFreeRedaction(window.localStorage));
+            setHistory(
+              addRedactionHistoryEntry(window.localStorage, {
+                outputSha256: result.sha256,
+                pageCount: result.pageCount,
+                regionCount: result.regionCount,
+                verifiedStringCount: seeded.length,
+              })
+            );
           } catch (e) {
             alert(
               `Redaction failed: ${
@@ -398,6 +497,38 @@ export function RedactorClient() {
           </pre>
         </section>
       )}
+      <section className="mt-4 rounded-md border border-neutral-200 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold">Local history</h2>
+          <button
+            className="rounded-md border border-neutral-300 px-3 py-2 text-sm disabled:text-neutral-400"
+            disabled={history.length === 0}
+            onClick={() => setHistory(clearRedactionHistory(window.localStorage))}
+          >
+            Clear history
+          </button>
+        </div>
+        {history.length === 0 ? (
+          <p className="mt-3 text-sm text-neutral-600">
+            Successful exports will appear here with content-free proof details.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2 text-sm">
+            {history.map((entry) => (
+              <li key={entry.id} className="rounded-md bg-neutral-50 p-3">
+                <p className="font-medium">
+                  {new Date(entry.createdAt).toLocaleString()}
+                </p>
+                <p className="mt-1 text-neutral-600">
+                  {entry.pageCount} page{entry.pageCount === 1 ? '' : 's'}, {entry.regionCount}{' '}
+                  region{entry.regionCount === 1 ? '' : 's'}, SHA-256{' '}
+                  {entry.outputSha256.slice(0, 12)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
       <div className="mt-4 space-y-4">
         {pages.map((p, i) => (
           <PdfPageCanvas

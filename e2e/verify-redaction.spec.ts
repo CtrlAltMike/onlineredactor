@@ -11,6 +11,7 @@ test('manual redaction removes the SSN from plain-ssn.pdf', async ({ page }) => 
   await loadFixture(page, 'plain-ssn.pdf');
 
   const canvas = page.getByLabel('Page 1');
+  await canvas.scrollIntoViewIfNeeded();
   const canvasBox = await canvas.boundingBox();
   if (!canvasBox) throw new Error('canvas has no bounding box');
 
@@ -44,6 +45,18 @@ test('search mode marks and redacts matching text', async ({ page }) => {
   expect(haystack).not.toContain('123-45-6789');
   expect(haystack).toContain('JaneDoe');
   expect(haystack).toContain('PrivacyWay');
+  await expect(page.getByText(/1 page, 1 region, SHA-256/i)).toBeVisible();
+});
+
+test('saved local rules can mark matching text', async ({ page }) => {
+  await loadFixture(page, 'plain-ssn.pdf');
+
+  await page.getByLabel(/find text/i).fill('123-45-6789');
+  await page.getByRole('button', { name: /save rule/i }).click();
+  await expect(page.getByText(/saved "123-45-6789"/i)).toBeVisible();
+  await page.getByRole('button', { name: /^apply$/i }).click();
+
+  await expect(page.getByText(/1 target selected/i)).toBeVisible();
 });
 
 test('auto-detect mode redacts supported sensitive patterns', async ({ page }) => {

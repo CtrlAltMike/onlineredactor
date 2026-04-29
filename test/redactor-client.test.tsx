@@ -81,6 +81,28 @@ describe('RedactorClient', () => {
     expect(screen.getByText(/1 target selected/i)).toBeInTheDocument();
   });
 
+  it('saves and applies local text rules', async () => {
+    const user = userEvent.setup();
+    render(<RedactorClient />);
+
+    await user.upload(
+      screen.getByLabelText(/pdf file/i),
+      new File(['pdf'], 'sample.pdf', { type: 'application/pdf' })
+    );
+
+    await screen.findByText(/loaded: sample\.pdf/i);
+    await user.type(screen.getByLabelText(/find text/i), '123-45-6789');
+    await user.click(screen.getByRole('button', { name: /save rule/i }));
+    expect(screen.getAllByText('123-45-6789').length).toBeGreaterThan(1);
+    await user.click(screen.getByRole('button', { name: /^apply$/i }));
+
+    expect(mocks.findTextRegions).toHaveBeenCalledWith(
+      expect.any(Array),
+      '123-45-6789'
+    );
+    expect(screen.getByText(/1 target selected/i)).toBeInTheDocument();
+  });
+
   it('disables export when the local free cap is reached', async () => {
     const user = userEvent.setup();
     window.localStorage.setItem(

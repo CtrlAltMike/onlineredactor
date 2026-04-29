@@ -14,6 +14,7 @@ describe('Pricing page', () => {
     render(<PricingPage />);
     expect(screen.getByText(/honor system/i)).toBeInTheDocument();
     expect(screen.getByText(/3 verified redactions per local day/i)).toBeInTheDocument();
+    expect(screen.getByText(/saved local rules/i)).toBeInTheDocument();
   });
 
   it('shows Enterprise as contact-us', () => {

@@ -16,6 +16,7 @@ const tiers: Tier[] = [
     features: [
       'Manual redaction, text search, auto-detect',
       '3 verified redactions per local day',
+      'Saved local rules + content-free history',
       'Watermarked redaction certificate',
     ],
     cta: { label: 'Open the tool', href: '/app' },
@@ -28,7 +29,7 @@ const tiers: Tier[] = [
       'Unlimited redactions',
       'Batch mode (drop folder)',
       'Clean redaction certificate',
-      'Saved redaction rules + local history',
+      'Account-synced rules + history',
     ],
     cta: { label: 'Paused', href: '/upgrade' },
   },

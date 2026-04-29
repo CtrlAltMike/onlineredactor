@@ -13,7 +13,8 @@ export default function UpgradePage() {
       </p>
       <p className="mt-8 rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
         The free redaction tool remains available with a local 3-redaction
-        daily cap. We are not accepting paid subscriptions at this time.
+        daily cap, saved local rules, and content-free local history. We are not
+        accepting paid subscriptions at this time.
       </p>
     </main>
   );
