@@ -21,4 +21,9 @@ describe('SiteFooter', () => {
     const link = screen.getByRole('link', { name: /source/i });
     expect(link).toHaveAttribute('href', expect.stringContaining('github.com/CtrlAltMike/onlineredactor'));
   });
+
+  it('links to terms', () => {
+    render(<SiteFooter />);
+    expect(screen.getByRole('link', { name: /terms/i })).toHaveAttribute('href', '/legal/terms');
+  });
 });

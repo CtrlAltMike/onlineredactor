@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RedactorClient } from '@/app/app/redactor-client';
+import { MAX_PDF_FILE_BYTES } from '@/lib/pdf/limits';
 import { FREE_USAGE_STORAGE_KEY } from '@/lib/usage/free-tier';
 
 const mocks = vi.hoisted(() => ({
@@ -96,6 +97,18 @@ describe('RedactorClient', () => {
     await screen.findByText(/free redactions today: 3\/3/i);
     expect(screen.getByRole('alert')).toHaveTextContent(/exports are paused/i);
     expect(screen.getByRole('button', { name: /redact/i })).toBeDisabled();
+  });
+
+  it('blocks PDFs above the Phase 1 size limit before loading', async () => {
+    const user = userEvent.setup();
+    const file = new File(['pdf'], 'huge.pdf', { type: 'application/pdf' });
+    Object.defineProperty(file, 'size', { value: MAX_PDF_FILE_BYTES + 1 });
+    render(<RedactorClient />);
+
+    await user.upload(screen.getByLabelText(/pdf file/i), file);
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/phase 1 browser limit/i);
+    expect(mocks.loadPdfFromFile).not.toHaveBeenCalled();
   });
 });
 

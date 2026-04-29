@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPdfFromFile } from '@/lib/pdf/render';
+import { pdfSizeLimitMessage } from '@/lib/pdf/limits';
 import {
   readFreeUsage,
   recordFreeRedaction,
@@ -52,6 +53,7 @@ export function RedactorClient() {
   const [targets, setTargets] = useState<CanvasTarget[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [status, setStatus] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [unsupportedReason, setUnsupportedReason] = useState<string | null>(null);
   const [certificateText, setCertificateText] = useState<string | null>(null);
   const [usage, setUsage] = useState<FreeUsageSnapshot>(initialUsage);
@@ -153,24 +155,43 @@ export function RedactorClient() {
     setStatus(`Added ${nextTargets.length} ${label} target${nextTargets.length === 1 ? '' : 's'}.`);
   }
 
+  function chooseFile(nextFile: File | undefined) {
+    if (!nextFile) return;
+    const limitMessage = pdfSizeLimitMessage(nextFile.size);
+    if (limitMessage) {
+      setFile(null);
+      setUploadError(limitMessage);
+      return;
+    }
+    setUploadError(null);
+    setFile(nextFile);
+  }
+
   if (!file) {
     return (
-      <section className="border-2 border-dashed border-neutral-300 rounded-lg p-16 text-center">
-        <p className="text-lg">Drop a PDF here, or click to select.</p>
-        <p className="mt-2 text-sm text-neutral-500">
-          Your file is processed in your browser. It never leaves your device.
-        </p>
-        <input
-          type="file"
-          accept="application/pdf"
-          aria-label="PDF file"
-          className="mt-6"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) setFile(f);
-          }}
-        />
-      </section>
+      <>
+        {uploadError && (
+          <p
+            role="alert"
+            className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+          >
+            {uploadError}
+          </p>
+        )}
+        <section className="border-2 border-dashed border-neutral-300 rounded-lg p-16 text-center">
+          <p className="text-lg">Drop a PDF here, or click to select.</p>
+          <p className="mt-2 text-sm text-neutral-500">
+            Your file is processed in your browser. It never leaves your device.
+          </p>
+          <input
+            type="file"
+            accept="application/pdf"
+            aria-label="PDF file"
+            className="mt-6"
+            onChange={(e) => chooseFile(e.target.files?.[0])}
+          />
+        </section>
+      </>
     );
   }
 

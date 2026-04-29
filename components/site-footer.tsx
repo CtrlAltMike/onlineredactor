@@ -9,6 +9,10 @@ export function SiteFooter() {
             AGPL-3.0
           </a>
           <span aria-hidden> · </span>
+          <a href="/legal/terms" className="hover:text-neutral-700 underline-offset-2 hover:underline">
+            Terms
+          </a>
+          <span aria-hidden> · </span>
           <a
             href="https://github.com/CtrlAltMike/onlineredactor"
             target="_blank"
