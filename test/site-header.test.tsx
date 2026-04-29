@@ -9,9 +9,10 @@ describe('SiteHeader', () => {
     expect(brand).toHaveAttribute('href', '/');
   });
 
-  it('links to pricing and privacy', () => {
+  it('links to pricing, security, and privacy', () => {
     render(<SiteHeader />);
     expect(screen.getByRole('link', { name: /pricing/i })).toHaveAttribute('href', '/pricing');
+    expect(screen.getByRole('link', { name: /security/i })).toHaveAttribute('href', '/security');
     expect(screen.getByRole('link', { name: /privacy/i })).toHaveAttribute('href', '/privacy');
   });
 });

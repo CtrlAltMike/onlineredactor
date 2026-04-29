@@ -48,6 +48,26 @@ export default function Home() {
           </div>
         ))}
       </section>
+
+      <section className="mt-20 border-t border-neutral-200 pt-10">
+        <h2 className="text-2xl font-semibold tracking-tight">
+          Built for verifiable redaction
+        </h2>
+        <div className="mt-5 grid gap-4 text-sm text-neutral-700 md:grid-cols-3">
+          <Link href="/how-it-works" className="underline underline-offset-4">
+            How the redaction pipeline works
+          </Link>
+          <Link href="/security" className="underline underline-offset-4">
+            Security model and current limits
+          </Link>
+          <Link
+            href="/redact-ssn-from-pdf"
+            className="underline underline-offset-4"
+          >
+            Redact SSNs from PDFs
+          </Link>
+        </div>
+      </section>
     </main>
   );
 }
