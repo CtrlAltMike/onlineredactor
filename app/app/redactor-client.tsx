@@ -5,6 +5,32 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPdfFromFile } from '@/lib/pdf/render';
 import { PdfPageCanvas } from '@/components/pdf-page-canvas';
 
+type TextItem = {
+  str?: string;
+  width?: number;
+  height?: number;
+  transform?: number[];
+};
+
+function estimateCoveredText(item: TextItem, rx0: number, rx1: number): string {
+  if (typeof item.str !== 'string' || item.str.length === 0) return '';
+  const tr = item.transform;
+  if (!tr || tr.length < 6) return '';
+
+  const chars = Array.from(item.str);
+  const width = typeof item.width === 'number' ? item.width : 0;
+  if (width <= 0 || chars.length === 0) return item.str.trim();
+
+  const startX = tr[4];
+  const charWidth = width / chars.length;
+  const covered = chars.filter((_, index) => {
+    const centerX = startX + charWidth * (index + 0.5);
+    return centerX >= rx0 && centerX <= rx1;
+  });
+
+  return covered.join('').trim();
+}
+
 export function RedactorClient() {
   const [file, setFile] = useState<File | null>(null);
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
@@ -75,13 +101,15 @@ export function RedactorClient() {
             if (!file || !doc) return;
             const bytes = new Uint8Array(await file.arrayBuffer());
             const { applyRedactions } = await import('@/lib/pdf/apply');
-            const { verifyRedactions } = await import('@/lib/pdf/verify');
+            const { verifyRedactions, verifyRedactionRegions } = await import(
+              '@/lib/pdf/verify'
+            );
 
             // Convert each canvas-space target to PDF space. Viewport scale = 1.5
             // (must match PdfPageCanvas' default in lib/pdf/render.ts).
-            // While we're there, extract the text items the target overlaps so
-            // we can feed them to verifyRedactions as the post-redaction
-            // contract ("these strings must NOT survive").
+            // While we're there, estimate the text fragments that fall inside
+            // each box. Verification checks those fragments, then separately
+            // confirms no extractable text remains inside the redaction boxes.
             const scale = 1.5;
             const seeded: string[] = [];
             const pdfTargets = await Promise.all(
@@ -95,24 +123,17 @@ export function RedactorClient() {
                   width: t.width / scale,
                   height: t.height / scale,
                 };
-                // Collect text items whose PDF-space AABB intersects pdfRect.
+                // Collect text fragments whose PDF-space AABB intersects pdfRect.
                 // pdfjs text items carry a 2D transform [a,b,c,d,e,f]; for
                 // horizontal text e is x-origin, f is y-baseline, and the item
-                // occupies roughly [e, f, e+width, f+height]. Err on the side
-                // of false positives — we'd rather claim a nearby string is
-                // being redacted than silently miss it.
+                // occupies roughly [e, f, e+width, f+height].
                 const tc = await p.getTextContent();
                 const rx0 = pdfRect.x;
                 const ry0 = pdfRect.y;
                 const rx1 = pdfRect.x + pdfRect.width;
                 const ry1 = pdfRect.y + pdfRect.height;
                 for (const rawItem of tc.items) {
-                  const it = rawItem as {
-                    str?: string;
-                    width?: number;
-                    height?: number;
-                    transform?: number[];
-                  };
+                  const it = rawItem as TextItem;
                   if (typeof it.str !== 'string' || it.str.length === 0) continue;
                   const tr = it.transform;
                   if (!tr || tr.length < 6) continue;
@@ -130,7 +151,10 @@ export function RedactorClient() {
                   const iy1 = fy + h * 1.1;
                   const overlaps =
                     ix0 < rx1 && ix1 > rx0 && iy0 < ry1 && iy1 > ry0;
-                  if (overlaps) seeded.push(it.str);
+                  if (overlaps) {
+                    const coveredText = estimateCoveredText(it, rx0, rx1);
+                    if (coveredText) seeded.push(coveredText);
+                  }
                 }
                 return { page: t.page, ...pdfRect };
               })
@@ -138,32 +162,26 @@ export function RedactorClient() {
 
             const result = await applyRedactions(bytes, pdfTargets);
 
-            // Week-1 policy for the empty-seeded case: when the user drew a
-            // box over something pdfjs couldn't extract text from (image-only
-            // region, CID font without ToUnicode, scanned page), `seeded` is
-            // empty and `verifyRedactions` would trivially return ok:true —
-            // a vacuous guarantee. apply DID rewrite the content stream and
-            // paint the black box, so the file is safe; we just can't prove
-            // it automatically. Warn the user honestly and still allow the
-            // download. (The alternative — blocking until we build a
-            // "text-inside-region" post-check — is deferred to a later week.)
             if (targets.length > 0 && seeded.length === 0) {
               alert(
-                "We couldn't extract text from the region you redacted before applying. MuPDF rewrote the content stream (the black rectangle is real), but we can't automatically verify it's clean. Please visually confirm the exported PDF before sharing it."
+                "We couldn't extract text from the region you selected, so the export was blocked. This can happen with scanned/image PDFs, unusual fonts, or non-text content. Nothing was downloaded."
               );
-            } else {
-              // Seeded targets: MuPDF should have scrubbed these from the
-              // content stream. If verify finds any, hard-fail the export so
-              // the user knows something slipped through.
-              const verify = await verifyRedactions(result.bytes, seeded);
-              if (!verify.ok) {
-                alert(
-                  `Verification failed — redaction did not remove the following text, so the file was NOT downloaded:\n\n${verify.leaked.join(
-                    '\n'
-                  )}`
-                );
-                return;
-              }
+              return;
+            }
+
+            const stringVerify = await verifyRedactions(result.bytes, seeded);
+            const regionVerify = await verifyRedactionRegions(
+              result.bytes,
+              pdfTargets
+            );
+            const leaked = [...stringVerify.leaked, ...regionVerify.leaked];
+            if (!stringVerify.ok || !regionVerify.ok) {
+              alert(
+                `Verification failed — redaction did not remove the following text, so the file was NOT downloaded:\n\n${leaked.join(
+                  '\n'
+                )}`
+              );
+              return;
             }
 
             const blob = new Blob([new Uint8Array(result.bytes)], {

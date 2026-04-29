@@ -91,7 +91,10 @@ export async function getStandardFontDataUrl(): Promise<string> {
 export async function loadPdfFromFile(file: File): Promise<PDFDocumentProxy> {
   const pdfjs = await getPdfjs();
   const buffer = await file.arrayBuffer();
-  return pdfjs.getDocument({ data: buffer }).promise;
+  return pdfjs.getDocument({
+    data: buffer,
+    standardFontDataUrl: await getStandardFontDataUrl(),
+  }).promise;
 }
 
 export type RenderHandle = {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
-import { verifyRedactions } from '@/lib/pdf/verify';
+import { verifyRedactionRegions, verifyRedactions } from '@/lib/pdf/verify';
 
 async function fixture(text: string): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -13,6 +13,13 @@ async function fixture(text: string): Promise<Uint8Array> {
 describe('verifyRedactions', () => {
   it('detects when a target string is still present in the output', async () => {
     const bytes = await fixture('SSN 123-45-6789');
+    const result = await verifyRedactions(bytes, ['123-45-6789']);
+    expect(result.ok).toBe(false);
+    expect(result.leaked).toContain('123-45-6789');
+  });
+
+  it('detects partial leftovers from a longer target string', async () => {
+    const bytes = await fixture('6789');
     const result = await verifyRedactions(bytes, ['123-45-6789']);
     expect(result.ok).toBe(false);
     expect(result.leaked).toContain('123-45-6789');
@@ -31,6 +38,23 @@ describe('verifyRedactions', () => {
   it('short-circuits to ok:true when targetStrings is empty', async () => {
     const bytes = await fixture('this remains');
     const result = await verifyRedactions(bytes, []);
+    expect(result).toEqual({ ok: true, leaked: [] });
+  });
+
+  it('detects extractable text still inside a redaction region', async () => {
+    const bytes = await fixture('SSN 123-45-6789');
+    const result = await verifyRedactionRegions(bytes, [
+      { page: 0, x: 72, y: 714, width: 200, height: 18 },
+    ]);
+    expect(result.ok).toBe(false);
+    expect(result.leaked.join('')).toContain('SSN 123-45-6789');
+  });
+
+  it('passes when extractable text is outside the redaction region', async () => {
+    const bytes = await fixture('SSN 123-45-6789');
+    const result = await verifyRedactionRegions(bytes, [
+      { page: 0, x: 72, y: 300, width: 200, height: 18 },
+    ]);
     expect(result).toEqual({ ok: true, leaked: [] });
   });
 });
