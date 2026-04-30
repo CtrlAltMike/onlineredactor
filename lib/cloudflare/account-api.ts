@@ -1,8 +1,20 @@
 import type { D1Database } from '@cloudflare/workers-types';
 
+type EmailSender = {
+  send(message: {
+    to: string;
+    from: string;
+    subject: string;
+    text: string;
+    html?: string;
+  }): Promise<void>;
+};
+
 export type AccountEnv = {
   DB: D1Database;
+  EMAIL?: EmailSender;
   APP_BASE_URL?: string;
+  AUTH_EMAIL_FROM?: string;
   AUTH_DEV_SHOW_MAGIC_LINK?: string;
   COOKIE_SECURE?: string;
 };
@@ -43,12 +55,18 @@ export async function requestMagicLink(
 
   const baseUrl = env.APP_BASE_URL || new URL(request.url).origin;
   const magicLink = `${baseUrl}/api/auth/verify?token=${encodeURIComponent(token)}`;
+  const emailSent = await sendMagicLinkEmail(env, email, magicLink);
+  const showDevLink = env.AUTH_DEV_SHOW_MAGIC_LINK === 'true';
 
   return json({
     ok: true,
-    message: 'If email delivery is configured, a sign-in link has been sent.',
-    devMagicLink:
-      env.AUTH_DEV_SHOW_MAGIC_LINK === 'true' ? magicLink : undefined,
+    message: emailSent
+      ? 'Check your email for a sign-in link.'
+      : showDevLink
+        ? 'Use the development sign-in link below.'
+        : 'Sign-in email is not configured yet. Your address was saved.',
+    devMagicLink: showDevLink ? magicLink : undefined,
+    deliveryConfigured: emailSent,
   });
 }
 
@@ -232,6 +250,34 @@ async function upsertUser(db: D1Database, email: string): Promise<UserRow> {
   return user;
 }
 
+async function sendMagicLinkEmail(
+  env: AccountEnv,
+  email: string,
+  magicLink: string
+): Promise<boolean> {
+  if (!env.EMAIL || !env.AUTH_EMAIL_FROM) return false;
+
+  await env.EMAIL.send({
+    to: email,
+    from: env.AUTH_EMAIL_FROM,
+    subject: 'Sign in to OnlineRedactor',
+    text: [
+      'Use this link to sign in to OnlineRedactor:',
+      '',
+      magicLink,
+      '',
+      'This link expires in 15 minutes.',
+    ].join('\n'),
+    html: [
+      '<p>Use this link to sign in to OnlineRedactor:</p>',
+      `<p><a href="${escapeHtml(magicLink)}">Sign in to OnlineRedactor</a></p>`,
+      '<p>This link expires in 15 minutes.</p>',
+    ].join(''),
+  });
+
+  return true;
+}
+
 async function requireSession(
   request: Request,
   env: AccountEnv
@@ -322,6 +368,23 @@ function addMinutes(date: Date, minutes: number): Date {
 
 function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    switch (character) {
+      case '&':
+        return '&amp;';
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '"':
+        return '&quot;';
+      default:
+        return '&#39;';
+    }
+  });
 }
 
 function safeJson(value: string): unknown {

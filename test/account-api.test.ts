@@ -2,7 +2,7 @@
 
 import { readFileSync } from 'node:fs';
 import { Miniflare } from 'miniflare';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   deleteAccount,
   getAccount,
@@ -34,7 +34,11 @@ describe('Cloudflare account API', () => {
       env
     );
     expect(requestResponse.status).toBe(200);
-    const requestBody = (await requestResponse.json()) as { devMagicLink: string };
+    const requestBody = (await requestResponse.json()) as {
+      deliveryConfigured: boolean;
+      devMagicLink: string;
+    };
+    expect(requestBody.deliveryConfigured).toBe(false);
     expect(requestBody.devMagicLink).toContain('/api/auth/verify?token=');
 
     const verifyResponse = await verifyMagicLink(
@@ -84,6 +88,37 @@ describe('Cloudflare account API', () => {
       env
     );
     expect(afterDeleteResponse.status).toBe(401);
+  });
+
+  it('sends magic links through the Cloudflare Email binding when configured', async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const env = {
+      ...(await testEnv()),
+      EMAIL: { send },
+      AUTH_EMAIL_FROM: 'login@example.com',
+      AUTH_DEV_SHOW_MAGIC_LINK: 'false',
+    };
+
+    const response = await requestMagicLink(
+      jsonRequest('/api/auth/request', { email: 'jane@example.com' }),
+      env
+    );
+
+    const body = (await response.json()) as {
+      deliveryConfigured: boolean;
+      devMagicLink?: string;
+      message: string;
+    };
+    expect(body.deliveryConfigured).toBe(true);
+    expect(body.devMagicLink).toBeUndefined();
+    expect(body.message).toMatch(/check your email/i);
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'jane@example.com',
+        from: 'login@example.com',
+        subject: 'Sign in to OnlineRedactor',
+      })
+    );
   });
 
   it('stores waitlist email without document data', async () => {
