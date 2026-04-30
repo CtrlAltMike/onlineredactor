@@ -219,10 +219,14 @@ test('local free-tier cap blocks export after three redactions', async ({ page }
   });
   await loadFixture(page, 'plain-ssn.pdf');
 
-  await page.getByLabel(/find text/i).fill('123-45-6789');
-  await page.getByRole('button', { name: /mark matches/i }).click();
   await expect(page.getByText(/free redactions today: 3\/3/i)).toBeVisible();
   await expect(page.getByText(/exports are paused/i)).toBeVisible();
+  const capDialog = page.getByRole('dialog', { name: /free redactions paused/i });
+  await expect(capDialog).toBeVisible();
+  await expect(capDialog.getByRole('link', { name: /upgrade options/i })).toHaveAttribute(
+    'href',
+    '/upgrade'
+  );
   await expect(page.getByRole('button', { name: /redact/i })).toBeDisabled();
 });
 

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RedactorClient } from '@/app/app/redactor-client';
@@ -118,6 +118,12 @@ describe('RedactorClient', () => {
 
     await screen.findByText(/free redactions today: 3\/3/i);
     expect(screen.getByRole('alert')).toHaveTextContent(/exports are paused/i);
+    const dialog = screen.getByRole('dialog', { name: /free redactions paused/i });
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByRole('link', { name: /upgrade options/i })).toHaveAttribute(
+      'href',
+      '/upgrade'
+    );
     expect(screen.getByRole('button', { name: /redact/i })).toBeDisabled();
   });
 

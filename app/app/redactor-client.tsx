@@ -71,12 +71,17 @@ export function RedactorClient() {
   const [usage, setUsage] = useState<FreeUsageSnapshot>(initialUsage);
   const [savedRules, setSavedRules] = useState<SavedRule[]>([]);
   const [history, setHistory] = useState<RedactionHistoryEntry[]>([]);
+  const [showCapModal, setShowCapModal] = useState(false);
 
   useEffect(() => {
     setUsage(readFreeUsage(window.localStorage));
     setSavedRules(readSavedRules(window.localStorage));
     setHistory(readRedactionHistory(window.localStorage));
   }, []);
+
+  useEffect(() => {
+    if (file && usage.isCapped) setShowCapModal(true);
+  }, [file, usage.isCapped]);
 
   useEffect(() => {
     if (!file) return;
@@ -388,9 +393,7 @@ export function RedactorClient() {
             const currentUsage = readFreeUsage(window.localStorage);
             if (currentUsage.isCapped) {
               setUsage(currentUsage);
-              alert(
-                "You've used today's 3 free verified redactions in this browser. Exports are paused until the local counter resets tomorrow."
-              );
+              setShowCapModal(true);
               return;
             }
             const bytes = new Uint8Array(await file.arrayBuffer());
@@ -457,7 +460,9 @@ export function RedactorClient() {
             setStatus(
               'Verified redaction complete. Download started. Verification certificate is ready.'
             );
-            setUsage(recordFreeRedaction(window.localStorage));
+            const nextUsage = recordFreeRedaction(window.localStorage);
+            setUsage(nextUsage);
+            if (nextUsage.isCapped) setShowCapModal(true);
             setHistory(
               addRedactionHistoryEntry(window.localStorage, {
                 outputSha256: result.sha256,
@@ -478,6 +483,39 @@ export function RedactorClient() {
       >
         Redact &amp; download
       </button>
+      {showCapModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="free-cap-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+        >
+          <section className="w-full max-w-md rounded-md bg-white p-6 shadow-xl">
+            <h2 id="free-cap-title" className="text-lg font-semibold">
+              Free redactions paused
+            </h2>
+            <p className="mt-3 text-sm text-neutral-700">
+              This browser has used today&apos;s 3 free verified redactions.
+              Paid checkout is paused while the product stays in safety review,
+              so exports resume when the local counter resets tomorrow.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
+                onClick={() => setShowCapModal(false)}
+              >
+                Close
+              </button>
+              <Link
+                href="/upgrade"
+                className="rounded-md bg-black px-4 py-2 text-sm text-white"
+              >
+                Upgrade options
+              </Link>
+            </div>
+          </section>
+        </div>
+      )}
       {certificateText && (
         <section
           aria-label="Verification certificate"

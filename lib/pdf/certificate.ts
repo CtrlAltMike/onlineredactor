@@ -3,6 +3,7 @@ export type VerificationCertificate = {
   certificateVersion: 1;
   generatedAt: string;
   result: 'passed';
+  plan: 'free';
   outputSha256: string;
   pageCount: number;
   regionCount: number;
@@ -30,6 +31,7 @@ export function buildVerificationCertificate(
     certificateVersion: 1,
     generatedAt: (input.generatedAt ?? new Date()).toISOString(),
     result: 'passed',
+    plan: 'free',
     outputSha256: input.outputSha256,
     pageCount: input.pageCount,
     regionCount: input.regionCount,
@@ -53,7 +55,8 @@ export function formatVerificationCertificate(
     'OnlineRedactor Verification Certificate',
     `Certificate version: ${certificate.certificateVersion}`,
     `Generated at: ${certificate.generatedAt}`,
-    `Result: ${certificate.result.toUpperCase()}`,
+    `Verification status: ${certificate.result.toUpperCase()}`,
+    `Plan: ${certificate.plan}`,
     `Output SHA-256: ${certificate.outputSha256}`,
     `Page count: ${certificate.pageCount}`,
     `Redaction regions: ${certificate.regionCount}`,

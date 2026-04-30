@@ -18,6 +18,8 @@ describe('verification certificate', () => {
     const text = formatVerificationCertificate(certificate);
 
     expect(text).toContain('OnlineRedactor Verification Certificate');
+    expect(text).toContain('Verification status: PASSED');
+    expect(text).toContain('Plan: free');
     expect(text).toContain('Generated at: 2026-04-28T12:00:00.000Z');
     expect(text).toContain('Output SHA-256: abc123');
     expect(text).toContain('Redaction regions: 3');
@@ -25,5 +27,6 @@ describe('verification certificate', () => {
     expect(text).toContain('Redacted with OnlineRedactor free build');
     expect(text).not.toContain('Jane Doe');
     expect(text).not.toContain('123-45-6789');
+    expect(text).not.toContain('sample.pdf');
   });
 });
