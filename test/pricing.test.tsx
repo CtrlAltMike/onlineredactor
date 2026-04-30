@@ -20,6 +20,7 @@ describe('Pricing page', () => {
   it('shows Enterprise as contact-us', () => {
     render(<PricingPage />);
     expect(screen.getByRole('link', { name: /contact us/i })).toBeInTheDocument();
+    expect(screen.getByText(/SSO planned after V1/i)).toBeInTheDocument();
   });
 
   it('shows Prosumer checkout as paused', () => {

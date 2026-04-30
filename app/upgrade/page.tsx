@@ -1,4 +1,4 @@
-import { WaitlistForm } from './waitlist-form';
+import { UpgradeClient } from './upgrade-client';
 
 export const metadata = {
   title: 'Upgrade — OnlineRedactor',
@@ -18,7 +18,7 @@ export default function UpgradePage() {
         daily cap, saved local rules, and content-free local history. We are not
         accepting paid subscriptions at this time.
       </p>
-      <WaitlistForm />
+      <UpgradeClient />
     </main>
   );
 }

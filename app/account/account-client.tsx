@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from 'react';
 type AccountResponse = {
   user: { email: string };
   plan: string;
+  isPro: boolean;
   subscription: {
     status: string;
     currentPeriodEnd: string | null;
@@ -33,6 +34,7 @@ export function AccountClient() {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [devMagicLink, setDevMagicLink] = useState<string | null>(null);
+  const [billingMessage, setBillingMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -107,6 +109,20 @@ export function AccountClient() {
     setState({ status: 'signed-out' });
   }
 
+  async function openBillingPortal() {
+    setBillingMessage(null);
+    const response = await fetch('/api/stripe/portal', {
+      method: 'POST',
+      credentials: 'include',
+    });
+    const data = (await response.json()) as { url?: string; error?: string };
+    if (!response.ok || !data.url) {
+      setBillingMessage(data.error ?? 'Billing portal is not available yet.');
+      return;
+    }
+    window.location.href = data.url;
+  }
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-16">
       <h1 className="text-4xl font-semibold tracking-tight">Account</h1>
@@ -169,11 +185,17 @@ export function AccountClient() {
               {state.account.subscription.status}.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
+                onClick={openBillingPortal}
+              >
+                Billing portal
+              </button>
               <Link
                 href="/upgrade"
                 className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
               >
-                Billing portal
+                Upgrade
               </Link>
               <button
                 className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
@@ -182,6 +204,9 @@ export function AccountClient() {
                 Sign out
               </button>
             </div>
+            {billingMessage && (
+              <p className="mt-3 text-sm text-neutral-700">{billingMessage}</p>
+            )}
           </div>
 
           <div className="rounded-md border border-neutral-200 p-4">

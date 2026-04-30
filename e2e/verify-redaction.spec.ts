@@ -230,6 +230,44 @@ test('local free-tier cap blocks export after three redactions', async ({ page }
   await expect(page.getByRole('button', { name: /redact/i })).toBeDisabled();
 });
 
+test('mocked Pro account bypasses the local free-tier cap', async ({ page }) => {
+  await page.route('**/api/account', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ isPro: true }),
+    });
+  });
+  await page.route('**/api/usage/redaction', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true }),
+    });
+  });
+  await page.goto('/');
+  await page.evaluate(() => {
+    const now = new Date();
+    const date = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-');
+    window.localStorage.setItem(
+      'onlineredactor.free-usage.v1',
+      JSON.stringify({ date, count: 3 })
+    );
+  });
+  await loadFixture(page, 'plain-ssn.pdf');
+
+  await expect(page.getByText(/pro plan: unlimited verified exports/i)).toBeVisible();
+  await page.getByLabel(/find text/i).fill('123-45-6789');
+  await page.getByRole('button', { name: /mark matches/i }).click();
+  const text = await redactAndExtractText(page);
+
+  expect(text.replace(/\s+/g, '')).not.toContain('123-45-6789');
+});
+
 async function loadFixture(page: Page, fixtureName: string) {
   await uploadFixture(page, fixtureName);
   await expect(page.getByLabel('Page 1')).toBeVisible();

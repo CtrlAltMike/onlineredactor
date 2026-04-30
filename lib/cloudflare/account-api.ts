@@ -31,6 +31,8 @@ type SessionRow = {
   email: string;
 };
 
+export type AccountSession = SessionRow;
+
 const sessionCookieName = 'or_session';
 const sessionMaxAgeSeconds = 60 * 60 * 24 * 30;
 
@@ -145,6 +147,7 @@ export async function getAccount(
   return json({
     user: { id: session.user_id, email: session.email },
     plan: subscription?.plan ?? 'free',
+    isPro: isActivePro(subscription?.plan, subscription?.status),
     subscription: {
       status: subscription?.status ?? 'inactive',
       currentPeriodEnd: subscription?.current_period_end ?? null,
@@ -218,6 +221,66 @@ export async function joinWaitlist(
   return json({ ok: true });
 }
 
+export async function recordVerifiedRedactionUsage(
+  request: Request,
+  env: AccountEnv
+): Promise<Response> {
+  const session = await requireSession(request, env);
+  if (!session) return json({ error: 'Not signed in.' }, 401);
+
+  await recordUsageEvent(env.DB, session.user_id, 'redaction_verified');
+  return json({ ok: true });
+}
+
+const allowedClientEventCodes = new Set([
+  'account_load_failed',
+  'checkout_disabled',
+  'checkout_failed',
+  'portal_failed',
+  'redaction_apply_failed',
+  'redaction_verification_failed',
+  'unsupported_pdf_blocked',
+]);
+
+const allowedRoutes = new Set([
+  '/',
+  '/account',
+  '/app',
+  '/pricing',
+  '/security',
+  '/upgrade',
+]);
+
+export async function recordClientEvent(
+  request: Request,
+  env: AccountEnv
+): Promise<Response> {
+  const body = await readJson<{ eventCode?: unknown; route?: unknown }>(request);
+  const eventCode = typeof body.eventCode === 'string' ? body.eventCode : '';
+  const route = typeof body.route === 'string' ? body.route : '';
+  if (!allowedClientEventCodes.has(eventCode)) {
+    return json({ error: 'Unsupported event code.' }, 400);
+  }
+  if (!allowedRoutes.has(route)) {
+    return json({ error: 'Unsupported route.' }, 400);
+  }
+
+  const session = await requireSession(request, env);
+  await env.DB.prepare(
+    `INSERT INTO client_events (id, user_id, event_code, route, created_at)
+     VALUES (?, ?, ?, ?, ?)`
+  )
+    .bind(
+      crypto.randomUUID(),
+      session?.user_id ?? null,
+      eventCode,
+      route,
+      new Date().toISOString()
+    )
+    .run();
+  return json({ ok: true });
+}
+
 async function upsertUser(db: D1Database, email: string): Promise<UserRow> {
   const now = new Date().toISOString();
   await db
@@ -278,7 +341,7 @@ async function sendMagicLinkEmail(
   return true;
 }
 
-async function requireSession(
+export async function requireSession(
   request: Request,
   env: AccountEnv
 ): Promise<SessionRow | null> {
@@ -295,6 +358,27 @@ async function requireSession(
   )
     .bind(await sha256Hex(token), new Date().toISOString())
     .first<SessionRow>();
+}
+
+export async function recordUsageEvent(
+  db: D1Database,
+  userId: string,
+  eventType: string
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO usage_events (id, user_id, event_type, created_at, metadata_json)
+       VALUES (?, ?, ?, ?, '{}')`
+    )
+    .bind(crypto.randomUUID(), userId, eventType, new Date().toISOString())
+    .run();
+}
+
+export function isActivePro(plan: string | undefined, status: string | undefined) {
+  return (
+    plan === 'pro' &&
+    (status === 'active' || status === 'trialing')
+  );
 }
 
 async function readJson<T>(request: Request): Promise<T> {

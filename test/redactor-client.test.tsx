@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RedactorClient } from '@/app/app/redactor-client';
 import { MAX_PDF_FILE_BYTES } from '@/lib/pdf/limits';
 import { FREE_USAGE_STORAGE_KEY } from '@/lib/usage/free-tier';
@@ -30,8 +30,21 @@ vi.mock('@/lib/pdf/text', () => ({
 }));
 
 describe('RedactorClient', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Not signed in.' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    );
     window.localStorage.clear();
     const fakePage = { view: [0, 0, 612, 792] };
     mocks.loadPdfFromFile.mockResolvedValue({
@@ -125,6 +138,35 @@ describe('RedactorClient', () => {
       '/upgrade'
     );
     expect(screen.getByRole('button', { name: /redact/i })).toBeDisabled();
+  });
+
+  it('lets signed-in Pro users export after the local free cap is reached', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ isPro: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    );
+    window.localStorage.setItem(
+      FREE_USAGE_STORAGE_KEY,
+      JSON.stringify({ date: localDateKey(new Date()), count: 3 })
+    );
+    render(<RedactorClient />);
+
+    await user.upload(
+      screen.getByLabelText(/pdf file/i),
+      new File(['pdf'], 'sample.pdf', { type: 'application/pdf' })
+    );
+    await screen.findByText(/pro plan: unlimited verified exports/i);
+    await user.type(screen.getByLabelText(/find text/i), '123-45-6789');
+    await user.click(screen.getByRole('button', { name: /mark matches/i }));
+
+    expect(screen.queryByRole('dialog', { name: /free redactions paused/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /redact/i })).not.toBeDisabled();
   });
 
   it('blocks PDFs above the Phase 1 size limit before loading', async () => {

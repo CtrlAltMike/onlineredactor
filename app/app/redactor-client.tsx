@@ -57,6 +57,12 @@ type CanvasTarget = {
 
 type PdfTarget = CanvasTarget;
 
+type AccountStatus =
+  | { status: 'loading'; isPro: false; signedIn: false }
+  | { status: 'signed-out'; isPro: false; signedIn: false }
+  | { status: 'signed-in'; isPro: boolean; signedIn: true }
+  | { status: 'error'; isPro: false; signedIn: false };
+
 export function RedactorClient() {
   const [file, setFile] = useState<File | null>(null);
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
@@ -72,16 +78,47 @@ export function RedactorClient() {
   const [savedRules, setSavedRules] = useState<SavedRule[]>([]);
   const [history, setHistory] = useState<RedactionHistoryEntry[]>([]);
   const [showCapModal, setShowCapModal] = useState(false);
+  const [accountStatus, setAccountStatus] = useState<AccountStatus>({
+    status: 'loading',
+    isPro: false,
+    signedIn: false,
+  });
 
   useEffect(() => {
     setUsage(readFreeUsage(window.localStorage));
     setSavedRules(readSavedRules(window.localStorage));
     setHistory(readRedactionHistory(window.localStorage));
+    fetch('/api/account', { credentials: 'include', cache: 'no-store' })
+      .then(async (response) => {
+        if (response.status === 401 || response.status === 404) {
+          setAccountStatus({
+            status: 'signed-out',
+            isPro: false,
+            signedIn: false,
+          });
+          return;
+        }
+        if (!response.ok) {
+          setAccountStatus({ status: 'error', isPro: false, signedIn: false });
+          await postClientEvent('account_load_failed');
+          return;
+        }
+        const account = (await response.json()) as { isPro?: boolean };
+        setAccountStatus({
+          status: 'signed-in',
+          isPro: account.isPro === true,
+          signedIn: true,
+        });
+      })
+      .catch(() => {
+        setAccountStatus({ status: 'error', isPro: false, signedIn: false });
+        void postClientEvent('account_load_failed');
+      });
   }, []);
 
   useEffect(() => {
-    if (file && usage.isCapped) setShowCapModal(true);
-  }, [file, usage.isCapped]);
+    if (file && usage.isCapped && !accountStatus.isPro) setShowCapModal(true);
+  }, [accountStatus.isPro, file, usage.isCapped]);
 
   useEffect(() => {
     if (!file) return;
@@ -362,18 +399,24 @@ export function RedactorClient() {
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
         <p>
-          Free redactions today: {usage.count}/{usage.limit}
+          {accountStatus.isPro
+            ? 'Pro plan: unlimited verified exports'
+            : `Free redactions today: ${usage.count}/${usage.limit}`}
         </p>
-        {usage.isCapped ? (
+        {usage.isCapped && !accountStatus.isPro ? (
           <Link href="/upgrade" className="underline underline-offset-4">
             Upgrade options
+          </Link>
+        ) : accountStatus.isPro ? (
+          <Link href="/account" className="underline underline-offset-4">
+            Manage account
           </Link>
         ) : (
           <p>{usage.remaining} remaining before the local free-tier pause.</p>
         )}
       </div>
 
-      {usage.isCapped && (
+      {usage.isCapped && !accountStatus.isPro && (
         <p
           role="alert"
           className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
@@ -386,12 +429,16 @@ export function RedactorClient() {
 
       <button
         className="mt-4 rounded-md bg-black text-white px-4 py-2 text-sm disabled:bg-neutral-300"
-        disabled={Boolean(unsupportedReason) || targets.length === 0 || usage.isCapped}
+        disabled={
+          Boolean(unsupportedReason) ||
+          targets.length === 0 ||
+          (usage.isCapped && !accountStatus.isPro)
+        }
         onClick={async () => {
           try {
             if (!file || !doc) return;
             const currentUsage = readFreeUsage(window.localStorage);
-            if (currentUsage.isCapped) {
+            if (currentUsage.isCapped && !accountStatus.isPro) {
               setUsage(currentUsage);
               setShowCapModal(true);
               return;
@@ -455,14 +502,24 @@ export function RedactorClient() {
               regionCount: result.regionCount,
               verifiedStringCount: seeded.length,
               verifiedRegionCount: pdfTargets.length,
+              plan: accountStatus.isPro ? 'pro' : 'free',
             });
             setCertificateText(formatVerificationCertificate(certificate));
             setStatus(
               'Verified redaction complete. Download started. Verification certificate is ready.'
             );
-            const nextUsage = recordFreeRedaction(window.localStorage);
-            setUsage(nextUsage);
-            if (nextUsage.isCapped) setShowCapModal(true);
+            if (accountStatus.isPro) {
+              if (accountStatus.signedIn) {
+                void fetch('/api/usage/redaction', {
+                  method: 'POST',
+                  credentials: 'include',
+                });
+              }
+            } else {
+              const nextUsage = recordFreeRedaction(window.localStorage);
+              setUsage(nextUsage);
+              if (nextUsage.isCapped) setShowCapModal(true);
+            }
             setHistory(
               addRedactionHistoryEntry(window.localStorage, {
                 outputSha256: result.sha256,
@@ -477,7 +534,7 @@ export function RedactorClient() {
                 e instanceof Error ? e.message : 'unknown error'
               }\n\nNothing was downloaded.`
             );
-            console.error(e);
+            void postClientEvent('redaction_apply_failed');
           }
         }}
       >
@@ -580,6 +637,18 @@ export function RedactorClient() {
       </div>
     </section>
   );
+}
+
+async function postClientEvent(eventCode: string) {
+  try {
+    await fetch('/api/client-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eventCode, route: '/app' }),
+    });
+  } catch {
+    // Monitoring is best-effort and must never affect local redaction.
+  }
 }
 
 function loadFailureMessage(error: unknown): string {

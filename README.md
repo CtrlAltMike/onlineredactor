@@ -30,8 +30,10 @@ This app is configured as a static Next.js export for Cloudflare Pages.
 - Build command: `npm run build:cloudflare`
 - Output directory: `out`
 - Account API data: Cloudflare D1 database `onlineredactor-prod`
-- Email login: Cloudflare Email Service binding named `EMAIL` plus
-  `AUTH_EMAIL_FROM`
+- Email login: Cloudflare Email Service `send_email` binding named `EMAIL`
+  plus `AUTH_EMAIL_FROM`
+- Stripe: API endpoints are present but checkout is disabled by default with
+  `STRIPE_CHECKOUT_ENABLED=false`
 
 Paid checkout is intentionally paused while redaction safety and AGPL compliance
 work is completed. See
@@ -41,3 +43,5 @@ subscription enforcement if paid plans are re-enabled later.
 
 See [`docs/cloudflare-account-system.md`](docs/cloudflare-account-system.md) for
 the account-system setup and manual Email Service steps.
+See [`docs/launch-checklist.md`](docs/launch-checklist.md) for the V1 launch
+gate.

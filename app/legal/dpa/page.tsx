@@ -1,7 +1,7 @@
 export const metadata = {
   title: 'DPA — OnlineRedactor',
   description:
-    'OnlineRedactor Phase 1 data processing posture and DPA availability.',
+    'OnlineRedactor data processing posture and DPA availability.',
 };
 
 export default function DpaPage() {
@@ -9,9 +9,9 @@ export default function DpaPage() {
     <main className="mx-auto max-w-3xl px-4 py-16">
       <h1 className="text-4xl font-semibold tracking-tight">Data processing</h1>
       <p className="mt-6 text-neutral-700">
-        Phase 1 does not offer a signed DPA, BAA, or enterprise compliance
-        pack. The app is intentionally limited to browser-side PDF processing
-        with public AGPL source while paid checkout remains paused.
+        OnlineRedactor does not currently offer a signed DPA, BAA, or
+        enterprise compliance pack. PDF processing stays browser-side with
+        public AGPL source while paid checkout remains disabled by default.
       </p>
 
       <section className="mt-10 space-y-6 text-sm text-neutral-700">
@@ -30,9 +30,9 @@ export default function DpaPage() {
             Account processing
           </h2>
           <p className="mt-2">
-            Account and billing systems are not active in Phase 1. If those are
-            added later, they must remain content-free and must not store PDF
-            bytes or redaction text.
+            Account and billing systems are limited to login, plan,
+            subscription, waitlist, and content-free usage metadata. They do
+            not store PDF bytes, filenames, redaction text, or coordinates.
           </p>
         </div>
       </section>

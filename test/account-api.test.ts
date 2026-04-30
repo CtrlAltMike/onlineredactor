@@ -1,17 +1,19 @@
 // @vitest-environment node
 
-import { readFileSync } from 'node:fs';
 import { Miniflare } from 'miniflare';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   deleteAccount,
   getAccount,
+  isActivePro,
   joinWaitlist,
   normalizeEmail,
+  recordClientEvent,
+  recordVerifiedRedactionUsage,
   requestMagicLink,
   verifyMagicLink,
-  type AccountEnv,
 } from '@/lib/cloudflare/account-api';
+import { createTestEnv, jsonRequest } from './cloudflare-test-env';
 
 let miniflare: Miniflare | null = null;
 
@@ -27,7 +29,7 @@ describe('Cloudflare account API', () => {
   });
 
   it('creates a magic-link session, returns content-free account data, and deletes account state', async () => {
-    const env = await testEnv();
+    const { env } = await testEnv();
 
     const requestResponse = await requestMagicLink(
       jsonRequest('/api/auth/request', { email: 'jane@example.com' }),
@@ -93,7 +95,7 @@ describe('Cloudflare account API', () => {
   it('sends magic links through the Cloudflare Email binding when configured', async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const env = {
-      ...(await testEnv()),
+      ...(await testEnv()).env,
       EMAIL: { send },
       AUTH_EMAIL_FROM: 'login@example.com',
       AUTH_DEV_SHOW_MAGIC_LINK: 'false',
@@ -122,7 +124,7 @@ describe('Cloudflare account API', () => {
   });
 
   it('stores waitlist email without document data', async () => {
-    const env = await testEnv();
+    const { env } = await testEnv();
 
     const response = await joinWaitlist(
       jsonRequest('/api/waitlist', {
@@ -139,32 +141,90 @@ describe('Cloudflare account API', () => {
     }>();
     expect(row).toEqual({ email: 'buyer@example.com', source: 'upgrade' });
   });
+
+  it('records only content-free account usage and allowlisted client events', async () => {
+    const { env } = await testEnv();
+    const cookie = await signInCookie(env);
+
+    const usageResponse = await recordVerifiedRedactionUsage(
+      new Request('https://example.com/api/usage/redaction', {
+        method: 'POST',
+        headers: { Cookie: cookie },
+      }),
+      env
+    );
+    expect(usageResponse.status).toBe(200);
+
+    const eventResponse = await recordClientEvent(
+      new Request('https://example.com/api/client-event', {
+        method: 'POST',
+        headers: {
+          Cookie: cookie,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventCode: 'checkout_disabled',
+          route: '/upgrade',
+          ignored: '123-45-6789',
+        }),
+      }),
+      env
+    );
+    expect(eventResponse.status).toBe(200);
+
+    const usage = await env.DB.prepare(
+      'SELECT event_type, metadata_json FROM usage_events'
+    ).first<{ event_type: string; metadata_json: string }>();
+    expect(usage).toEqual({
+      event_type: 'redaction_verified',
+      metadata_json: '{}',
+    });
+
+    const event = await env.DB.prepare(
+      'SELECT event_code, route FROM client_events'
+    ).first<{ event_code: string; route: string }>();
+    expect(event).toEqual({
+      event_code: 'checkout_disabled',
+      route: '/upgrade',
+    });
+  });
+
+  it('rejects arbitrary client events and routes', async () => {
+    const { env } = await testEnv();
+    const response = await recordClientEvent(
+      jsonRequest('/api/client-event', {
+        eventCode: 'sample.pdf',
+        route: '/app?file=sample.pdf',
+      }),
+      env
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it('recognizes only active or trialing Pro subscriptions', () => {
+    expect(isActivePro('pro', 'active')).toBe(true);
+    expect(isActivePro('pro', 'trialing')).toBe(true);
+    expect(isActivePro('pro', 'past_due')).toBe(false);
+    expect(isActivePro('free', 'active')).toBe(false);
+  });
 });
 
-async function testEnv(): Promise<AccountEnv> {
-  miniflare = new Miniflare({
-    modules: true,
-    script: 'export default {}',
-    d1Databases: ['DB'],
-  });
-  const db = await miniflare.getD1Database('DB');
-  const migration = readFileSync('migrations/0001_phase4_accounts.sql', 'utf8');
-  for (const statement of migration.split(/;\s*\n/)) {
-    const sql = statement.trim();
-    if (sql) await db.prepare(`${sql};`).run();
-  }
-  return {
-    DB: db,
-    APP_BASE_URL: 'https://example.com',
-    AUTH_DEV_SHOW_MAGIC_LINK: 'true',
-    COOKIE_SECURE: 'false',
-  };
+async function testEnv() {
+  const test = await createTestEnv();
+  miniflare = test.miniflare;
+  return test;
 }
 
-function jsonRequest(path: string, body: unknown): Request {
-  return new Request(`https://example.com${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+async function signInCookie(env: Awaited<ReturnType<typeof testEnv>>['env']) {
+  const requestResponse = await requestMagicLink(
+    jsonRequest('/api/auth/request', { email: 'jane@example.com' }),
+    env
+  );
+  const requestBody = (await requestResponse.json()) as { devMagicLink: string };
+  const verifyResponse = await verifyMagicLink(
+    new Request(requestBody.devMagicLink),
+    env
+  );
+  return verifyResponse.headers.get('Set-Cookie') ?? '';
 }

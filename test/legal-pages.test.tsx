@@ -13,6 +13,7 @@ describe('legal pages', () => {
   it('renders the DPA posture page', () => {
     render(<DpaPage />);
     expect(screen.getByRole('heading', { name: /data processing/i })).toBeInTheDocument();
-    expect(screen.getByText(/does not offer a signed dpa/i)).toBeInTheDocument();
+    expect(screen.getByText(/does not currently offer a signed dpa/i)).toBeInTheDocument();
+    expect(screen.getByText(/content-free usage metadata/i)).toBeInTheDocument();
   });
 });

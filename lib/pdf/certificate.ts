@@ -3,7 +3,7 @@ export type VerificationCertificate = {
   certificateVersion: 1;
   generatedAt: string;
   result: 'passed';
-  plan: 'free';
+  plan: 'free' | 'pro';
   outputSha256: string;
   pageCount: number;
   regionCount: number;
@@ -21,6 +21,7 @@ export type VerificationCertificateInput = {
   regionCount: number;
   verifiedStringCount: number;
   verifiedRegionCount: number;
+  plan?: 'free' | 'pro';
 };
 
 export function buildVerificationCertificate(
@@ -31,13 +32,16 @@ export function buildVerificationCertificate(
     certificateVersion: 1,
     generatedAt: (input.generatedAt ?? new Date()).toISOString(),
     result: 'passed',
-    plan: 'free',
+    plan: input.plan ?? 'free',
     outputSha256: input.outputSha256,
     pageCount: input.pageCount,
     regionCount: input.regionCount,
     verifiedStringCount: input.verifiedStringCount,
     verifiedRegionCount: input.verifiedRegionCount,
-    watermark: 'Redacted with OnlineRedactor free build',
+    watermark:
+      input.plan === 'pro'
+        ? 'OnlineRedactor Pro verified export'
+        : 'Redacted with OnlineRedactor free build',
     method:
       'Redactions applied with MuPDF content-stream redaction, then verified by reopening the output and checking both seeded text fragments and redacted regions with PDF.js.',
     limitations: [

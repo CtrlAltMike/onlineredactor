@@ -1,7 +1,7 @@
 export const metadata = {
   title: 'Terms — OnlineRedactor',
   description:
-    'Phase 1 terms for using OnlineRedactor as an AGPL browser-based PDF redaction tool.',
+    'Terms for using OnlineRedactor as an AGPL browser-based PDF redaction tool.',
 };
 
 export default function TermsPage() {
@@ -9,7 +9,7 @@ export default function TermsPage() {
     <main className="mx-auto max-w-3xl px-4 py-16">
       <h1 className="text-4xl font-semibold tracking-tight">Terms</h1>
       <p className="mt-6 text-neutral-700">
-        OnlineRedactor Phase 1 is a free, AGPL-licensed browser tool. You are
+        OnlineRedactor is an AGPL-licensed browser tool. You are
         responsible for reviewing the output before sharing it and for deciding
         whether the tool is appropriate for your legal, business, healthcare,
         or compliance needs.
@@ -19,9 +19,10 @@ export default function TermsPage() {
         <div>
           <h2 className="text-lg font-medium text-neutral-950">No paid service</h2>
           <p className="mt-2">
-            Paid checkout is paused. No subscription, service-level agreement,
-            business associate agreement, or professional-services relationship
-            is created by using the site.
+            Paid checkout is disabled by default until Stripe test mode passes
+            and the operator enables it. No service-level agreement, business
+            associate agreement, or professional-services relationship is
+            created by using the site.
           </p>
         </div>
         <div>

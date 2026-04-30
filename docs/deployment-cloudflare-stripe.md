@@ -13,7 +13,8 @@ items are resolved.
 - Host: Cloudflare Pages
 - Build command: `npm run build:cloudflare`
 - Build output directory: `out`
-- Stripe integration: paused
+- Stripe integration: test-mode endpoints available, checkout disabled by
+  default
 
 Cloudflare's static Next.js Pages guide uses `npx next build` and `out` for
 static exports. Cloudflare's current recommendation for full-stack Next.js is
@@ -31,22 +32,21 @@ References:
 
 ## Stripe setup
 
-Stripe setup is paused. The existing Prosumer Payment Link should remain
-inactive or unlinked from the app until paid access is ready.
+Stripe checkout is gated by `STRIPE_CHECKOUT_ENABLED=false` by default. Any old
+direct Payment Link should remain inactive or unlinked from the app.
 
-When paid plans are re-enabled later:
+When paid plans are enabled later:
 
 1. In Stripe, create the Prosumer product and a recurring monthly price.
-2. Create a Payment Link for that subscription.
-3. Set the Payment Link's success URL to your production app, for example
-   `https://onlineredactor.com/app?checkout=success`.
-4. In Cloudflare Pages, add
-   `NEXT_PUBLIC_STRIPE_PROSUMER_PAYMENT_LINK` with that Stripe Payment Link URL.
-5. Redeploy the site so `/pricing` points the Prosumer upgrade button at
-   Stripe.
+2. Configure the Stripe customer portal.
+3. Add Cloudflare secrets: `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`.
+4. Add the non-secret Pages variables `STRIPE_PRO_PRICE_ID` and
+   `STRIPE_CHECKOUT_ENABLED=true`.
+5. Keep `STRIPE_LIVE_MODE_ALLOWED` unset unless intentionally switching from
+   test mode to live mode.
 
 This intentionally avoids collecting card data inside OnlineRedactor. Stripe
-hosts the payment page and handles payment method collection.
+hosts Checkout and the Billing Portal.
 
 ## Cloudflare Pages setup
 

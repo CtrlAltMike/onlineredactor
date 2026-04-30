@@ -29,4 +29,22 @@ describe('verification certificate', () => {
     expect(text).not.toContain('123-45-6789');
     expect(text).not.toContain('sample.pdf');
   });
+
+  it('formats Pro certificates without the free watermark', () => {
+    const certificate = buildVerificationCertificate({
+      generatedAt: new Date('2026-04-28T12:00:00.000Z'),
+      outputSha256: 'def456',
+      pageCount: 1,
+      regionCount: 1,
+      verifiedStringCount: 1,
+      verifiedRegionCount: 1,
+      plan: 'pro',
+    });
+
+    const text = formatVerificationCertificate(certificate);
+
+    expect(text).toContain('Plan: pro');
+    expect(text).toContain('OnlineRedactor Pro verified export');
+    expect(text).not.toContain('free build');
+  });
 });
