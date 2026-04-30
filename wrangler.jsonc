@@ -11,11 +11,6 @@
     "APP_BASE_URL": "https://onlineredactor.pages.dev",
     "STRIPE_CHECKOUT_ENABLED": "false"
   },
-  "send_email": [
-    {
-      "name": "EMAIL"
-    }
-  ],
   "d1_databases": [
     {
       "binding": "DB",

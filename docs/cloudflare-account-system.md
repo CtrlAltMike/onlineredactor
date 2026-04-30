@@ -32,11 +32,15 @@ npx wrangler d1 migrations apply onlineredactor-prod --remote
 
 ## Magic-Link Email
 
-The app supports a Cloudflare Email Service `send_email` binding named `EMAIL`.
-Configure Email Sending in Cloudflare, then add these settings to the Pages
-project:
+The app supports an optional Cloudflare Email Service-compatible binding named
+`EMAIL`. Cloudflare Pages rejected `send_email` in `wrangler.jsonc` during
+deployment validation on April 30, 2026, so production must stay in the
+"sign-in email is not configured yet" state until the app is moved to a
+compatible Workers runtime or Cloudflare adds Pages support for this binding.
 
-- binding: `EMAIL` under `send_email`
+When the runtime supports it, configure:
+
+- binding: `EMAIL`
 - variable: `AUTH_EMAIL_FROM`, for example `login@yourdomain.com`
 - variable: `APP_BASE_URL`, for example `https://onlineredactor.pages.dev`
 

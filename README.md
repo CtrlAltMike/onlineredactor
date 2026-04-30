@@ -30,8 +30,9 @@ This app is configured as a static Next.js export for Cloudflare Pages.
 - Build command: `npm run build:cloudflare`
 - Output directory: `out`
 - Account API data: Cloudflare D1 database `onlineredactor-prod`
-- Email login: Cloudflare Email Service `send_email` binding named `EMAIL`
-  plus `AUTH_EMAIL_FROM`
+- Email login: API support exists, but Cloudflare Pages does not accept a
+  `send_email` binding in `wrangler.jsonc`; production stays honest until email
+  is configured through a compatible Cloudflare runtime.
 - Stripe: API endpoints are present but checkout is disabled by default with
   `STRIPE_CHECKOUT_ENABLED=false`
 
