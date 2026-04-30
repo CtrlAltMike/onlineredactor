@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "onlineredactor",
+  "pages_build_output_dir": "out",
+  "compatibility_date": "2026-04-30",
+  "compatibility_flags": ["nodejs_compat_v2"],
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "APP_BASE_URL": "https://onlineredactor.pages.dev"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "onlineredactor-prod",
+      "database_id": "b095df41-6ac6-4467-9caf-7cfa4abaa0db",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

@@ -7,6 +7,7 @@ const baseUrl = 'https://onlineredactor.pages.dev';
 const routes = [
   '/',
   '/app',
+  '/account',
   '/pricing',
   '/privacy',
   '/security',

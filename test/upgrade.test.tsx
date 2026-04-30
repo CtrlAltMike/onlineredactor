@@ -9,6 +9,7 @@ describe('Upgrade page', () => {
     expect(screen.getByText(/paid checkout is paused/i)).toBeInTheDocument();
     expect(screen.getByText(/local 3-redaction daily cap/i)).toBeInTheDocument();
     expect(screen.getByText(/saved local rules/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /join waitlist/i })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /stripe/i })).not.toBeInTheDocument();
   });
 });

@@ -8,6 +8,7 @@ describe('metadata routes', () => {
 
     expect(urls).toContain('https://onlineredactor.pages.dev/');
     expect(urls).toContain('https://onlineredactor.pages.dev/app');
+    expect(urls).toContain('https://onlineredactor.pages.dev/account');
     expect(urls).toContain('https://onlineredactor.pages.dev/hipaa-pdf-redaction');
     expect(urls).toContain('https://onlineredactor.pages.dev/redact-bank-statement');
     expect(urls).toContain('https://onlineredactor.pages.dev/legal/terms');

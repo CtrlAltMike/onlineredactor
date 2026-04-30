@@ -1,3 +1,5 @@
+import { WaitlistForm } from './waitlist-form';
+
 export const metadata = {
   title: 'Upgrade — OnlineRedactor',
   description: 'OnlineRedactor paid checkout is paused.',
@@ -16,6 +18,7 @@ export default function UpgradePage() {
         daily cap, saved local rules, and content-free local history. We are not
         accepting paid subscriptions at this time.
       </p>
+      <WaitlistForm />
     </main>
   );
 }
