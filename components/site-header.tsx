@@ -3,11 +3,11 @@ import Link from 'next/link';
 export function SiteHeader() {
   return (
     <header className="border-b border-neutral-200">
-      <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div className="mx-auto flex min-h-14 max-w-5xl flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:h-14 sm:flex-nowrap sm:justify-between sm:py-0">
         <Link href="/" className="font-semibold tracking-tight">
           OnlineRedactor
         </Link>
-        <nav className="flex items-center gap-6 text-sm">
+        <nav className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 text-sm sm:w-auto sm:gap-6">
           <Link href="/pricing">Pricing</Link>
           <Link href="/security">Security</Link>
           <Link href="/account">Account</Link>

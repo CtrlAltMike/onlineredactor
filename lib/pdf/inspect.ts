@@ -4,10 +4,10 @@ export type PdfSupportIssueCode =
   | 'attachments'
   | 'calculation-actions'
   | 'document-javascript'
+  | 'document-metadata'
   | 'form-fields'
   | 'image-only'
-  | 'page-annotations'
-  | 'sensitive-metadata';
+  | 'page-annotations';
 
 export type PdfSupportIssue = {
   code: PdfSupportIssueCode;
@@ -28,12 +28,12 @@ type PdfMetadata = {
   } | null;
 };
 
-const sensitiveMetadataPatterns = [
-  /\b\d{3}-\d{2}-\d{4}\b/,
-  /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i,
-  /\b(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}\b/,
-  /\b(?:\d[ -]*?){13,19}\b/,
-];
+const userMetadataInfoKeys = new Set([
+  'Title',
+  'Author',
+  'Subject',
+  'Keywords',
+]);
 
 export async function inspectDocumentFeatures(
   doc: PDFDocumentProxy
@@ -82,12 +82,12 @@ export async function inspectDocumentFeatures(
   }
 
   const metadata = await optional(() => doc.getMetadata());
-  if (metadataHasSensitiveText(metadata as PdfMetadata | null)) {
+  if (metadataHasUserText(metadata as PdfMetadata | null)) {
     issues.push({
-      code: 'sensitive-metadata',
+      code: 'document-metadata',
       blocking: true,
       message:
-        'This PDF contains sensitive-looking document metadata. Metadata redaction is not verified yet, so export is disabled.',
+        'This PDF contains document metadata that may include hidden document text. Metadata stripping is not verified for this input yet, so export is disabled.',
     });
   }
 
@@ -103,7 +103,7 @@ export async function inspectPageFeatures(
   if (!Array.isArray(annotations)) return [];
 
   const unsupported = (annotations as PdfAnnotation[]).filter(
-    (annotation) => annotation.subtype && annotation.subtype !== 'Link'
+    (annotation) => annotation.subtype
   );
   if (unsupported.length === 0) return [];
 
@@ -116,7 +116,7 @@ export async function inspectPageFeatures(
       blocking: true,
       message: hasWidget
         ? 'This PDF contains fillable form fields or widgets. Form-field redaction is not verified yet, so export is disabled.'
-        : 'This PDF contains annotations. Annotation redaction is not verified yet, so export is disabled.',
+        : 'This PDF contains annotations, including links or hidden annotation payloads. Annotation redaction is not verified yet, so export is disabled.',
     },
   ];
 }
@@ -152,16 +152,18 @@ function hasObjectEntries(value: unknown): boolean {
   );
 }
 
-function metadataHasSensitiveText(metadata: PdfMetadata | null): boolean {
+function metadataHasUserText(metadata: PdfMetadata | null): boolean {
   if (!metadata) return false;
-  return collectMetadataValues(metadata).some((value) =>
-    sensitiveMetadataPatterns.some((pattern) => pattern.test(value))
-  );
+  return collectUserMetadataValues(metadata).some((value) => value.trim().length > 0);
 }
 
-function collectMetadataValues(metadata: PdfMetadata): string[] {
+function collectUserMetadataValues(metadata: PdfMetadata): string[] {
   const values: string[] = [];
-  collectUnknownMetadata(metadata.info, values);
+  if (metadata.info) {
+    for (const [key, value] of Object.entries(metadata.info)) {
+      if (userMetadataInfoKeys.has(key)) collectUnknownMetadata(value, values);
+    }
+  }
 
   const parsedMetadata = metadata.metadata;
   const iterator = parsedMetadata?.[Symbol.iterator];

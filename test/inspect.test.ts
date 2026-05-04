@@ -42,7 +42,7 @@ describe('PDF support inspection', () => {
     ]);
   });
 
-  it('blocks sensitive-looking document metadata', async () => {
+  it('blocks user-controlled document metadata', async () => {
     const doc = {
       getFieldObjects: async () => null,
       hasJSActions: async () => false,
@@ -58,12 +58,33 @@ describe('PDF support inspection', () => {
     const issues = await inspectDocumentFeatures(doc);
 
     expect(issues).toMatchObject([
-      { code: 'sensitive-metadata', blocking: true },
+      { code: 'document-metadata', blocking: true },
     ]);
     expect(formatBlockingIssues(issues)).toContain('document metadata');
   });
 
-  it('allows plain link annotations but blocks content annotations', async () => {
+  it('allows generated producer metadata', async () => {
+    const doc = {
+      getFieldObjects: async () => null,
+      hasJSActions: async () => false,
+      getJSActions: async () => null,
+      getCalculationOrderIds: async () => null,
+      getAttachments: async () => null,
+      getMetadata: async () => ({
+        info: {
+          Producer: 'pdf-lib (https://github.com/Hopding/pdf-lib)',
+          Creator: 'pdf-lib (https://github.com/Hopding/pdf-lib)',
+          CreationDate: 'D:20260504182004Z',
+          ModDate: 'D:20260504182004Z',
+        },
+        metadata: null,
+      }),
+    } as unknown as PDFDocumentProxy;
+
+    await expect(inspectDocumentFeatures(doc)).resolves.toEqual([]);
+  });
+
+  it('blocks link annotations and content annotations', async () => {
     const linkOnlyPage = {
       getAnnotations: async () => [{ subtype: 'Link' }],
     } as unknown as PDFPageProxy;
@@ -71,7 +92,9 @@ describe('PDF support inspection', () => {
       getAnnotations: async () => [{ subtype: 'Text' }],
     } as unknown as PDFPageProxy;
 
-    await expect(inspectPageFeatures(linkOnlyPage)).resolves.toEqual([]);
+    await expect(inspectPageFeatures(linkOnlyPage)).resolves.toMatchObject([
+      { code: 'page-annotations', blocking: true },
+    ]);
     await expect(inspectPageFeatures(notePage)).resolves.toMatchObject([
       { code: 'page-annotations', blocking: true },
     ]);

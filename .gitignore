@@ -32,6 +32,8 @@ node_modules/
 
 # testing
 /coverage
+/output
+.wrangler/
 
 # next.js
 /.next/

@@ -1,8 +1,8 @@
 # OnlineRedactor
 
-Client-side PDF redaction built with Next.js. Uploaded PDFs are rendered,
-redacted, and verified in the browser; document bytes are not sent to the app's
-servers.
+Client-side PDF redaction built with Next.js. Supported PDFs are rendered,
+redacted, metadata-stripped, and checked in the browser; document bytes are not
+sent to the app's servers.
 
 ## Local development
 

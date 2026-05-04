@@ -6,9 +6,9 @@ const bullets = [
     body: 'Your PDFs never leave your browser. All processing happens client-side.',
   },
   {
-    title: 'Verified redactions',
+    title: 'Verification gates',
     body:
-      'Unlike Adobe defaults, we verify your redactions worked. Every export is re-opened and scanned before download.',
+      'Supported PDFs are re-opened before download to check selected extractable text, redaction regions, and stripped metadata.',
   },
   {
     title: 'Works logged-out',
@@ -21,11 +21,12 @@ export default function Home() {
     <main className="max-w-5xl mx-auto px-4 pt-16 pb-24">
       <section className="max-w-2xl">
         <h1 className="text-5xl font-semibold tracking-tight leading-[1.1]">
-          A PDF redactor that proves your redactions worked.
+          A browser PDF redactor with verification gates.
         </h1>
         <p className="mt-6 text-lg text-neutral-600">
-          Redact sensitive text in your browser. Files never leave your browser.
-          Every export is verified before you can download it.
+          Redact sensitive text in your browser. For supported PDFs, exports
+          are checked for selected text leaks and stripped document metadata
+          before download.
         </p>
         <div className="mt-8 flex items-center gap-4">
           <Link

@@ -54,6 +54,29 @@ describe('applyRedactions (true content-stream redaction)', () => {
     expect(result.bytes.byteLength).not.toBe(input.byteLength);
   });
 
+  it('strips document metadata from the exported PDF', async () => {
+    const doc = await PDFDocument.create();
+    const page = doc.addPage([612, 792]);
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    page.drawText('Name: Jane Doe', { x: 72, y: 720, size: 12, font });
+    doc.setTitle('Jane Doe confidential');
+    doc.setSubject('Case ABC-123');
+    doc.setAuthor('Jane Doe');
+    const input = await doc.save();
+
+    const result = await applyRedactions(input, [
+      { page: 0, x: 72, y: 714, width: 200, height: 18 },
+    ]);
+
+    const output = await PDFDocument.load(result.bytes);
+    expect(output.getTitle()).toBe('');
+    expect(output.getSubject()).toBe('');
+    expect(output.getAuthor()).toBe('');
+    const rawOutput = Buffer.from(result.bytes).toString('latin1');
+    expect(rawOutput).not.toContain('Jane Doe confidential');
+    expect(rawOutput).not.toContain('Case ABC-123');
+  });
+
   it('passes through when targets is empty (no-op is safe)', async () => {
     const input = await fixture('nothing touched');
     const result = await applyRedactions(input, []);

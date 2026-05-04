@@ -9,13 +9,15 @@ export const metadata = {
 const guarantees = [
   'PDF bytes are loaded, rendered, redacted, and verified in the browser.',
   'Redaction uses MuPDF content-stream redaction, not cosmetic black rectangles.',
-  'Exports are re-opened and checked for leaked text fragments and text remaining inside redaction regions.',
-  'Scanned-only PDFs, fillable forms, document JavaScript, embedded attachments, and unsupported annotations are blocked before export.',
+  'Exports are re-opened and checked for selected text fragments and text remaining inside redaction regions.',
+  'Document metadata is stripped from exported PDFs.',
+  'Scanned-only PDFs, fillable forms, document JavaScript, embedded attachments, and all annotations including links are blocked before export.',
 ];
 
 const limits = [
   'OCR redaction for scanned PDFs is not part of V1.',
   'Password-protected PDFs are blocked until a verified password workflow is added.',
+  'Verification covers the supported PDF set and selected extractable page text; it is not a legal or compliance certification.',
   'Payment is paused while the AGPL public-source path remains the active licensing route.',
 ];
 
@@ -28,8 +30,8 @@ export default function SecurityPage() {
         </h1>
         <p className="mt-5 text-lg text-neutral-600">
           OnlineRedactor is designed around a narrow promise: redact PDFs in the
-          browser, prove the selected extractable text was removed, and refuse
-          PDFs that cannot be verified safely yet.
+          browser, check that selected extractable text was removed, strip
+          document metadata, and refuse PDFs that cannot be verified safely yet.
         </p>
       </section>
 

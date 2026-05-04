@@ -6,7 +6,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'OnlineRedactor — client-side PDF redaction',
   description:
-    'Redact PDFs in your browser. Files never leave your device. Automated verification confirms every redaction worked.',
+    'Redact supported PDFs in your browser. Files never leave your device. Exports are checked for selected text leaks before download.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

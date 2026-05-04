@@ -161,7 +161,7 @@ describe('RedactorClient', () => {
       screen.getByLabelText(/pdf file/i),
       new File(['pdf'], 'sample.pdf', { type: 'application/pdf' })
     );
-    await screen.findByText(/pro plan: unlimited verified exports/i);
+    await screen.findByText(/pro plan: unlimited checked exports/i);
     await user.type(screen.getByLabelText(/find text/i), '123-45-6789');
     await user.click(screen.getByRole('button', { name: /mark matches/i }));
 

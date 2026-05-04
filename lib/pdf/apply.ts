@@ -87,7 +87,9 @@ export async function applyRedactions(
       );
     }
 
-    const outBuffer = doc.saveToBuffer();
+    stripDocumentMetadata(doc);
+
+    const outBuffer = doc.saveToBuffer({ garbage: 4, deflate: true });
     // Buffer.asUint8Array() is a view onto WASM memory; copy into a fresh
     // Uint8Array so the bytes survive after the doc/buffer are destroyed.
     const view = outBuffer.asUint8Array();
@@ -104,6 +106,29 @@ export async function applyRedactions(
     doc.destroy();
   }
 }
+
+function stripDocumentMetadata(doc: import('mupdf').PDFDocument): void {
+  const trailer = doc.getTrailer();
+  trailer.delete('Info');
+
+  const root = trailer.get('Root');
+  if (!root.isNull()) root.delete('Metadata');
+
+  for (const key of metadataKeys) {
+    doc.setMetaData(key, '');
+  }
+}
+
+const metadataKeys = [
+  'info:Author',
+  'info:Title',
+  'info:Subject',
+  'info:Keywords',
+  'info:Creator',
+  'info:Producer',
+  'info:CreationDate',
+  'info:ModDate',
+];
 
 function transformPdfRectToPageRect(
   target: PdfSpaceTarget,
