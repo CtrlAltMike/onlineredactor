@@ -21,11 +21,11 @@ const steps = [
   },
   {
     title: 'Verify',
-    body: 'The redacted output is opened again and checked for leaked fragments and text left inside redacted regions.',
+    body: 'The redacted output is opened again and checked for selected text fragments, text left inside redacted regions, and stripped document metadata.',
   },
   {
     title: 'Export',
-    body: 'Only verified outputs are downloaded, with a local certificate containing timestamp, page count, region count, and output hash.',
+    body: 'Supported outputs that pass those checks are downloaded with a local certificate containing timestamp, page count, region count, and output hash.',
   },
 ];
 

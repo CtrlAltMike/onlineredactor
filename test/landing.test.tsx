@@ -6,7 +6,7 @@ describe('Landing page', () => {
   it('shows the headline', () => {
     render(<Home />);
     expect(
-      screen.getByRole('heading', { level: 1, name: /proves your redactions worked/i })
+      screen.getByRole('heading', { level: 1, name: /verification gates/i })
     ).toBeInTheDocument();
   });
 

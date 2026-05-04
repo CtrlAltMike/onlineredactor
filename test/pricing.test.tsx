@@ -13,7 +13,7 @@ describe('Pricing page', () => {
   it('shows the consumer cap honesty line', () => {
     render(<PricingPage />);
     expect(screen.getByText(/honor system/i)).toBeInTheDocument();
-    expect(screen.getByText(/3 verified redactions per local day/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 checked exports per local day/i)).toBeInTheDocument();
     expect(screen.getByText(/saved local rules/i)).toBeInTheDocument();
   });
 

@@ -270,7 +270,7 @@ export function RedactorClient() {
             type="file"
             accept="application/pdf"
             aria-label="PDF file"
-            className="mt-6"
+            className="mx-auto mt-6 block w-full max-w-xs text-sm"
             onChange={(e) => chooseFile(e.target.files?.[0])}
           />
         </section>
@@ -400,7 +400,7 @@ export function RedactorClient() {
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
         <p>
           {accountStatus.isPro
-            ? 'Pro plan: unlimited verified exports'
+            ? 'Pro plan: unlimited checked exports'
             : `Free redactions today: ${usage.count}/${usage.limit}`}
         </p>
         {usage.isCapped && !accountStatus.isPro ? (
@@ -421,7 +421,7 @@ export function RedactorClient() {
           role="alert"
           className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
         >
-          You have used today&apos;s 3 free verified redactions in this browser.
+          You have used today&apos;s 3 free checked exports in this browser.
           Paid checkout is paused, so exports are paused until the local counter
           resets tomorrow.
         </p>
@@ -506,7 +506,7 @@ export function RedactorClient() {
             });
             setCertificateText(formatVerificationCertificate(certificate));
             setStatus(
-              'Verified redaction complete. Download started. Verification certificate is ready.'
+              'Redaction checks passed. Download started. Verification certificate is ready.'
             );
             if (accountStatus.isPro) {
               if (accountStatus.signedIn) {
@@ -552,7 +552,7 @@ export function RedactorClient() {
               Free redactions paused
             </h2>
             <p className="mt-3 text-sm text-neutral-700">
-              This browser has used today&apos;s 3 free verified redactions.
+              This browser has used today&apos;s 3 free checked exports.
               Paid checkout is paused while the product stays in safety review,
               so exports resume when the local counter resets tomorrow.
             </p>
@@ -624,7 +624,7 @@ export function RedactorClient() {
           </ul>
         )}
       </section>
-      <div className="mt-4 space-y-4">
+      <div className="mt-4 max-w-full space-y-4 overflow-x-auto pb-2">
         {pages.map((p, i) => (
           <PdfPageCanvas
             key={`${file.name}-${i}`}

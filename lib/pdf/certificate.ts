@@ -43,10 +43,10 @@ export function buildVerificationCertificate(
         ? 'OnlineRedactor Pro verified export'
         : 'Redacted with OnlineRedactor free build',
     method:
-      'Redactions applied with MuPDF content-stream redaction, then verified by reopening the output and checking both seeded text fragments and redacted regions with PDF.js.',
+      'Redactions applied with MuPDF content-stream redaction, document metadata stripped, then verified by reopening the output and checking both seeded text fragments and redacted regions with PDF.js.',
     limitations: [
       'Certificate covers extractable PDF page text and redaction regions verified by this browser session.',
-      'PDFs with scanned-only pages, fillable forms, document JavaScript, unsupported annotations, or embedded attachments are blocked before export.',
+      'PDFs with scanned-only pages, fillable forms, document JavaScript, annotations, or embedded attachments are blocked before export.',
       'The original PDF, filenames, redaction coordinates, and redacted strings are not included in this certificate.',
     ],
   };

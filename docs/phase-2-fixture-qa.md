@@ -1,6 +1,6 @@
 # Phase 2 Fixture Corpus + QA
 
-Phase 2 keeps paid checkout paused and proves the redactor against representative PDF shapes before V1 launch.
+Phase 2 keeps paid checkout paused and checks the redactor against representative PDF shapes before V1 launch.
 
 ## Automated Fixture Matrix
 
@@ -23,7 +23,8 @@ npm run e2e
 | `non-latin.pdf` | Supported export | Non-Latin searchable text |
 | `form-field.pdf` | Blocked | AcroForm/widget content is not verified yet |
 | `annotation-text.pdf` | Blocked | Annotation content is not verified yet |
-| `metadata-sensitive.pdf` | Blocked | Sensitive-looking metadata is not scrubbed yet |
+| `link-annotation.pdf` | Blocked | Link annotation payloads are not verified yet |
+| `metadata-sensitive.pdf` | Blocked | User-controlled document metadata is blocked before export |
 | `encrypted.pdf` | Blocked | Password-protected PDFs are unsupported |
 | `scanned-image-only.pdf` | Blocked | Image-only PDFs need OCR before redaction |
 | `ocr-like-image.pdf` | Blocked | Visible image text needs OCR before redaction |

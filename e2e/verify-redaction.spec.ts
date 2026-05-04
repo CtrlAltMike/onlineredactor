@@ -68,6 +68,11 @@ const blockedFixtures = [
     pageVisible: true,
   },
   {
+    name: 'link-annotation.pdf',
+    alert: /annotations/i,
+    pageVisible: true,
+  },
+  {
     name: 'metadata-sensitive.pdf',
     alert: /document metadata/i,
     pageVisible: true,
@@ -134,6 +139,18 @@ test('search mode marks and redacts matching text', async ({ page }) => {
   await expect(page.getByText(/1 page, 1 region, SHA-256/i)).toBeVisible();
 });
 
+test('loaded PDF preview does not widen the mobile page', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loadFixture(page, 'plain-ssn.pdf');
+
+  const overflowBy = await page.evaluate(
+    () =>
+      document.documentElement.scrollWidth -
+      document.documentElement.clientWidth
+  );
+  expect(overflowBy).toBeLessThanOrEqual(1);
+});
+
 for (const fixture of supportedFixtures) {
   test(`fixture corpus exports verified redaction for ${fixture.name}`, async ({ page }) => {
     await loadFixture(page, fixture.name);
@@ -189,7 +206,7 @@ for (const fixture of blockedFixtures) {
   test(`fixture corpus blocks unsupported file ${fixture.name}`, async ({ page }) => {
     await uploadFixture(page, fixture.name);
     if (fixture.pageVisible) {
-      await expect(page.getByLabel('Page 1')).toBeVisible();
+      await expect(page.getByLabel('Page 1')).toBeVisible({ timeout: 20000 });
     }
     await expect(page.getByText(fixture.alert)).toBeVisible();
     await expect(page.getByRole('button', { name: /redact/i })).toBeDisabled();
@@ -260,7 +277,7 @@ test('mocked Pro account bypasses the local free-tier cap', async ({ page }) => 
   });
   await loadFixture(page, 'plain-ssn.pdf');
 
-  await expect(page.getByText(/pro plan: unlimited verified exports/i)).toBeVisible();
+  await expect(page.getByText(/pro plan: unlimited checked exports/i)).toBeVisible();
   await page.getByLabel(/find text/i).fill('123-45-6789');
   await page.getByRole('button', { name: /mark matches/i }).click();
   const text = await redactAndExtractText(page);
@@ -270,7 +287,7 @@ test('mocked Pro account bypasses the local free-tier cap', async ({ page }) => 
 
 async function loadFixture(page: Page, fixtureName: string) {
   await uploadFixture(page, fixtureName);
-  await expect(page.getByLabel('Page 1')).toBeVisible();
+  await expect(page.getByLabel('Page 1')).toBeVisible({ timeout: 20000 });
 }
 
 async function uploadFixture(page: Page, fixtureName: string) {

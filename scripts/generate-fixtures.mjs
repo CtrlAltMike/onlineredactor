@@ -252,6 +252,26 @@ await writePdf('annotation-text.pdf', async (doc) => {
   page.node.set(PDFName.of('Annots'), doc.context.obj([annotationRef]));
 });
 
+await writePdf('link-annotation.pdf', async (doc) => {
+  const page = doc.addPage([612, 792]);
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  page.drawText('Link annotation fixture', { x: 72, y: 730, size: 12, font });
+  page.drawText('Client: Jane Doe', { x: 72, y: 706, size: 12, font });
+  const annotation = doc.context.obj({
+    Type: PDFName.of('Annot'),
+    Subtype: PDFName.of('Link'),
+    Rect: [72, 700, 180, 722],
+    Border: [0, 0, 0],
+    A: doc.context.obj({
+      Type: PDFName.of('Action'),
+      S: PDFName.of('URI'),
+      URI: PDFString.of('https://example.com/private/Jane-Doe'),
+    }),
+  });
+  const annotationRef = doc.context.register(annotation);
+  page.node.set(PDFName.of('Annots'), doc.context.obj([annotationRef]));
+});
+
 await writePdf('metadata-sensitive.pdf', async (doc) => {
   const page = doc.addPage([612, 792]);
   const font = await doc.embedFont(StandardFonts.Helvetica);

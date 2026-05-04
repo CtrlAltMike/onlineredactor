@@ -27,7 +27,8 @@ and optional deployed API smoke tests.
 - Stripe test checkout, renewal, cancellation, failed payment, and portal flows
   update D1 correctly.
 - Manual QA in Chrome, macOS Preview, and Adobe Reader confirms no copy/paste
-  leaks for supported fixtures.
+  leaks for supported fixtures and no document metadata remains in exported
+  fixtures.
 - Legal review confirms AGPL/public-source posture or a commercial MuPDF
   license is in place.
 - `STRIPE_CHECKOUT_ENABLED=true` is set only after the test-mode gate passes.

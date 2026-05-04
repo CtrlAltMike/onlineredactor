@@ -15,7 +15,7 @@ const tiers: Tier[] = [
     blurb: 'For occasional redactions. No signup required.',
     features: [
       'Manual redaction, text search, auto-detect',
-      '3 verified redactions per local day',
+      '3 checked exports per local day',
       'Saved local rules + content-free history',
       'Watermarked redaction certificate',
     ],
@@ -26,7 +26,7 @@ const tiers: Tier[] = [
     price: '$7/mo',
     blurb: 'For freelancers, paralegals, solo HR, journalists.',
     features: [
-      'Unlimited verified redactions after Stripe is enabled',
+      'Unlimited checked exports after Stripe is enabled',
       'Clean Pro redaction certificate',
       'Billing portal through Stripe',
       'Checkout is paused until test mode passes',
